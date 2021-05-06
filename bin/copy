@@ -1,0 +1,5 @@
+#!/usr/bin/env node
+
+const copy = require('../utils/index').copyAssets
+
+copy(...process.argv.slice(2))

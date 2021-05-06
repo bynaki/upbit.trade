@@ -1,0 +1,9 @@
+{
+  "upbit_keys": {
+    "accessKey": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "secretKey": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  },
+  "order": {
+    "atime_price": 5000
+  }
+}
