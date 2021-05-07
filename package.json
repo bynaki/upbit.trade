@@ -43,7 +43,7 @@
   },
   "dependencies": {
     "cryptocurrency.api": "^1.1.1",
-    "fourdollar": "^2.1.1",
+    "fourdollar": "^2.1.2",
     "uuid": "^8.3.2",
     "ws": "^7.4.5"
   },

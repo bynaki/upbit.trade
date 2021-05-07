@@ -8,6 +8,15 @@ import {
   types as I,
 } from '../src'
 import $4 from 'fourdollar'
+import {
+  join,
+} from 'path'
+import {
+  readFile,
+} from 'fs/promises'
+import {
+  remove,
+} from 'fs-extra'
 
 
 
@@ -242,9 +251,10 @@ class TestQueueBot extends BaseSocketBot {
   onOrderbook = null
 
   async onTrade(data: I.TradeType) {
-    const ms = this._count-- * 1000
-    await $4.stop(ms)
+    const ms = this._count-- * 2000
     this._datas.push(data)
+    this.log(`count: ${this._count}`, data)
+    await $4.stop(ms)
     if(ms === 0) {
       const t = this._t
       //console.log(`data.length: ${this._datas.length}`)
@@ -261,6 +271,36 @@ class TestQueueBot extends BaseSocketBot {
   }
 }
 
+
+class TestLogBot extends BaseSocketBot {
+  private _t: CbExecutionContext
+  private _origin
+
+  constructor(code: string, t: CbExecutionContext) {
+    super(code)
+    this._t = t
+    this._t.plan(2)
+  }
+  
+  async init() {
+    this._origin = TestLogBot.writer
+    TestLogBot.writer = new $4.FileWriter(join(__dirname, 'log', 'test.log'), '1d')
+    this._t.pass()
+  }
+
+  async onTrade(data: I.TradeType) {
+    this.log('Hello World!!')
+    await $4.stop(500)
+    const contents = await readFile(join(__dirname, 'log', 'test.log'))
+    const reg = /log: \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} > TestLogBot:KRW-BTC - Hello World!!/
+    this._t.regex(contents.toString(), reg)
+    TestLogBot.writer = this._origin
+    this._t.end()
+  }
+
+  onOrderbook = null
+  onTicker = null
+}
 
 
 test.cb.skip('websocket > trade', t => {
@@ -377,7 +417,7 @@ test('BaseSocketBot > id', t => {
   t.pass()
 })
 
-test('UPbitSocket > #start() & #close()', async t => {
+test.serial('UPbitSocket > #start() & #close()', async t => {
   const us = new UPbitSocket([
     'KRW-BTC',
     'KRW-ETH',
@@ -523,7 +563,7 @@ test('UPbitSocket > #requests()', t => {
   ])
 })
 
-test.cb('TestTradeBot', t => {
+test.serial.cb('TestTradeBot', t => {
   const us = new UPbitSocket([
     'KRW-BTC',
     'KRW-ETH',
@@ -540,7 +580,7 @@ test.cb('TestTradeBot', t => {
   us.start()
 })
 
-test.cb('TestOrderbookBot', t => {
+test.serial.cb('TestOrderbookBot', t => {
   const us = new UPbitSocket([
     'KRW-BTC',
     'KRW-ETH',
@@ -557,7 +597,7 @@ test.cb('TestOrderbookBot', t => {
   us.start()
 })
 
-test.cb('TestTickerBot', t => {
+test.serial.cb('TestTickerBot', t => {
   const us = new UPbitSocket([
     'KRW-BTC',
     'KRW-ETH',
@@ -574,9 +614,17 @@ test.cb('TestTickerBot', t => {
   us.start()
 })
 
-test.cb('TestQueueBot', t => {
+test.serial.cb('TestLogBot', t => {
+  const us = new UPbitSocket(['KRW-BTC'])
+  us.addBot(new TestLogBot('KRW-BTC', t))
+  us.start()
+})
+
+test.serial.cb('TestQueueBot', t => {
+  t.timeout(20000)
   const us = new UPbitSocket(['KRW-BTC'])
   us.addBot(new TestQueueBot('KRW-BTC', t))
   us.start()
 })
 
+test.after(() => remove(join(__dirname, 'log')))

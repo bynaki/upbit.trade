@@ -1,7 +1,7 @@
 # UPbit Trade
 
 
-UPbit 자동 매매 모듈
+UPbit 자동매매 모듈
 
 
 ## License

@@ -1,7 +1,9 @@
 import * as I from './types'
 import {
-  Logger
+  Logger,
+  FileWriter,
 } from 'fourdollar'
+
 
 
 export abstract class BaseSocketBot extends Logger {
@@ -16,7 +18,7 @@ export abstract class BaseSocketBot extends Logger {
   }
 
   constructor(public readonly code: string) {
-    super()
+    super(code)
   }
 
   async trigger<T extends I.ResType>(data: T) {
@@ -59,3 +61,7 @@ export abstract class BaseSocketBot extends Logger {
   abstract onOrderbook(data: I.OrderbookType): Promise<void>
   abstract onTicker(data: I.TickerType): Promise<void>
 }
+
+
+// BaseSocketBot.writer.link = new FileWriter('./log/bot.log', '1d')
+// BaseSocketBot.format = ':name: < :time:\n:msg:'
