@@ -10,3 +10,6 @@ config.ts
 archive.tar.gz
 config.json
 yarn.lock
+record.log
+limit.log
+market.log

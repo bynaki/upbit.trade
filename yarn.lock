@@ -619,10 +619,10 @@ crypto-random-string@^2.0.0:
   resolved "https://registry.yarnpkg.com/crypto-random-string/-/crypto-random-string-2.0.0.tgz#ef2a7a966ec11083388369baa02ebead229b30d5"
   integrity sha512-v1plID3y9r/lPhviJ1wrXpLeyUIGAZ2SHNYTEapm7/8A9nLPoyvVp3RK/EPFqn5kEznyWgYZNsRtYYIWbuG8KA==
 
-cryptocurrency.api@^1.1.1:
-  version "1.1.1"
-  resolved "https://registry.yarnpkg.com/cryptocurrency.api/-/cryptocurrency.api-1.1.1.tgz#539865f697fc1ab9fc8cb4aa36fef441c734e4fe"
-  integrity sha512-Fw2eHPQ1gXcBFA2IuQ90Cyrm2d+Uqf3hIXtHlgx/dhO2wCDzEwXVYX6vg31LPUv86oginEapjihV7+atX1/Dwg==
+cryptocurrency.api@^1.1.2:
+  version "1.1.2"
+  resolved "https://registry.yarnpkg.com/cryptocurrency.api/-/cryptocurrency.api-1.1.2.tgz#dac4b4c84c47ad0a53f9bbf128e0a0188275caeb"
+  integrity sha512-FZfVLGfjY2ZtoDLv658NVxYJpKB9tJrRUyAMeInKpdn60dq3A1cuJ72XTxKBEMerBOWK9N6Ik1Q/9dXUxpdhhQ==
   dependencies:
     axios "^0.21.1"
     fourdollar.isfloat "^1.0.1"

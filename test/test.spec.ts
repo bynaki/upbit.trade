@@ -627,4 +627,4 @@ test.serial.cb('TestQueueBot', t => {
   us.start()
 })
 
-test.after(() => remove(join(__dirname, 'log')))
+// test.after(() => remove(join(__dirname, 'log')))
