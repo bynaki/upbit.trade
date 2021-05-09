@@ -12,7 +12,7 @@ import {
   floor,
   ceil,
   floorOrderbook,
-} from '../src'
+} from './utils'
 
 
 export class BalanceError extends Error {
