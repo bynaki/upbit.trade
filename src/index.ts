@@ -11,3 +11,6 @@ export {
   UPbit,
   toNumbers,
 } from 'cryptocurrency.api'
+export {
+  FileWriter,
+} from 'fourdollar'
