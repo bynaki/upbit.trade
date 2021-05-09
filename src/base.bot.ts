@@ -57,6 +57,7 @@ export abstract class BaseSocketBot extends Logger {
   }
 
   abstract init(): Promise<void>
+  abstract onClose(): Promise<void>
   abstract onTrade(data: I.TradeType): Promise<void>
   abstract onOrderbook(data: I.OrderbookType): Promise<void>
   abstract onTicker(data: I.TickerType): Promise<void>

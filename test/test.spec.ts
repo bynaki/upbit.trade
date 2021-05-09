@@ -25,12 +25,11 @@ class TestBot extends BaseSocketBot {
     super(code)
   }
 
-  async init() {
-  }
-
   async onTrade(data: I.TradeType) {
   }
 
+  init = null
+  onClose = null
   onOrderbook = null
   onTicker = null
 }
@@ -41,15 +40,14 @@ class TestBot2 extends BaseSocketBot {
     super(code)
   }
 
-  async init() {
-  }
-
   async onTrade(data: I.TradeType) {
   }
 
   async onOrderbook(data: I.OrderbookType) {
   }
 
+  init = null
+  onClose = null
   onTicker = null
 }
 
@@ -58,15 +56,14 @@ class TestBot3 extends BaseSocketBot {
     super(code)
   }
 
-  async init() {
-  }
-
   async onTrade(data: I.TradeType) {
   }
 
   async onOrderbook(data: I.OrderbookType) {
   }
 
+  init = null
+  onClose = null
   onTicker = null
 }
 
@@ -119,6 +116,7 @@ class TestTradeBot extends BaseSocketBot {
     }
   }
 
+  onClose = null
   onOrderbook = null
   onTicker = null
 }
@@ -171,6 +169,7 @@ class TestOrderbookBot extends BaseSocketBot {
     }
   }
 
+  onClose = null
   onTrade = null
   onTicker = null
 }
@@ -227,6 +226,7 @@ class TestTickerBot extends BaseSocketBot {
     }
   }
 
+  onClose = null
   onOrderbook = null
   onTrade = null
 }
@@ -247,9 +247,6 @@ class TestQueueBot extends BaseSocketBot {
     this._t.pass()
   }
   
-  onTicker = null
-  onOrderbook = null
-
   async onTrade(data: I.TradeType) {
     const ms = this._count-- * 2000
     this._datas.push(data)
@@ -269,6 +266,10 @@ class TestQueueBot extends BaseSocketBot {
       this._t.end()
     }
   }
+
+  onClose = null
+  onOrderbook = null
+  onTicker = null
 }
 
 
@@ -300,6 +301,7 @@ class TestLogBot extends BaseSocketBot {
 
   onOrderbook = null
   onTicker = null
+  onClose = null
 }
 
 
@@ -627,4 +629,4 @@ test.serial.cb('TestQueueBot', t => {
   us.start()
 })
 
-// test.after(() => remove(join(__dirname, 'log')))
+test.after(() => remove(join(__dirname, 'log')))

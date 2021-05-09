@@ -1,6 +1,7 @@
 import test from 'ava'
 import {
   Order,
+  OrderMock,
   getConfig,
   UPbit,
 } from '../src'
@@ -198,3 +199,36 @@ if(false) {
 //   console.log(res)
 //   t.pass()
 // })
+
+/**
+ * 가상 매매
+ */
+if(true) {
+  const config = getConfig('./config.json')
+  const api = new UPbit(config.upbit_keys)
+  const order = new OrderMock(api)
+
+  test.serial('ordermock > #bidMarket()', async t => {
+    const res = await order.bidMarket({
+      market: 'KRW-BTC',
+      price: 5000,
+    })
+    console.log(res)
+    console.log(await order.updateStatus())
+    t.pass()
+  })
+
+  test.serial('ordermock > #cancel(): can not cancel', async t => {
+    const res = await order.cancel()
+    console.log(res)
+    console.log(await order.updateStatus())
+    t.pass()
+  })
+
+  test.serial('ordermock > #askMarket()', async t => {
+    const res = await order.askMarket()
+    console.log(res)
+    console.log(await order.updateStatus())
+    t.pass()
+  })
+}

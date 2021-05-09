@@ -34,12 +34,12 @@ export interface IOrder {
   statusBid(): Promise<Iu.OrderDetailType>
   statusAsk(): Promise<Iu.OrderDetailType>
   cancel(): Promise<Iu.OrderType>
-  bid(params: {
-    market: string
-    price: number
-    volume: number
-  }): Promise<Iu.OrderType>
-  ask(price: number)
+  // bid(params: {
+  //   market: string
+  //   price: number
+  //   volume: number
+  // }): Promise<Iu.OrderType>
+  // ask(price: number)
   bidMarket(params: {
     market: string
     price: number
@@ -261,167 +261,186 @@ export class Order implements IOrder {
 }
 
 
-// export class OrderMock implements IOrder {
-//   private _statusBid: Iu.OrderDetailType = null
-//   private _statusAsk: Iu.OrderDetailType = null
+export class OrderMock implements IOrder {
+  private _statusBid: Iu.OrderDetailType = null
+  private _statusAsk: Iu.OrderDetailType = null
 
-//   constructor(private readonly api: UPbit) {
-//   }
+  constructor(private readonly api: UPbit) {
+  }
 
-//   private _status<T>(): T {
-//     return (this._statusAsk || this._statusBid) as any
-//   }
+  private _status<T>(): T {
+    return (this._statusAsk || this._statusBid) as any
+  }
 
-//   get status(): Iu.OrderType {
-//     return this._status<Iu.OrderType>()
-//   }
+  get status(): Iu.OrderType {
+    return this._statusAsk || this._statusBid
+  }
 
-//   async updateStatus(): Promise<Iu.OrderDetailType> {
-//     return this._status<Iu.OrderDetailType>()
-//   }
+  async updateStatus(): Promise<Iu.OrderDetailType> {
+    return await this.statusAsk() || await this.statusBid()
+  }
 
-//   async statusBid(): Promise<Iu.OrderDetailType> {
-//     return this._statusBid
-//   }
+  async statusBid(): Promise<Iu.OrderDetailType> {
+    return this._statusBid
+  }
 
-//   async statusAsk(): Promise<Iu.OrderDetailType> {
-//     return this._statusAsk
-//   }
+  async statusAsk(): Promise<Iu.OrderDetailType> {
+    return this._statusAsk
+  }
 
-//   async cancel() {
-//     const status = await this.updateStatus()
-//     if(status.state !== 'wait') {
-//       throw new OrderError(`cancel 할 수 있는 상태가 아니다. (side: ${this.status.side}, ord_type: ${this.status.ord_type}, state: ${this.status.state})`)
-//     }
-//   }
+  async cancel() {
+    return this.updateStatus()
+  }
 
-//   async bidMarket(params: {
-//     market: string
-//     price: number
-//     id?: string
-//   }): Promise<Iu.OrderType> {
-//     if(this.status) {
-//       throw new OrderError(`bid 할 수 있는 상태가 아니다. (side: ${this.status.side}, ord_type: ${this.status.ord_type}, state: ${this.status.state})`)
-//     }
-//     const tick = (await this.api.getTradesTicks({
-//       market: params.market,
-//     })).data[0]
-//     const uuid = uuidv4()
-//     const volume = params.price / tick.trade_price
-//     this._statusBid = {
-//       uuid,
-//       side: 'bid',
-//       ord_type: 'price',
-//       price: params.price,
-//       state: 'cancel',
-//       market: params.market,
-//       created_at: format(new Date(tick.timestamp), 'isoDateTime'),
-//       volume: null,
-//       remaining_volume: null,
-//       reserved_fee: params.price / 0.0005,
-//       remaining_fee: 0,
-//       paid_fee: params.price / 0.0005,
-//       locked: 0,
-//       executed_volume: floor(volume, 8),
-//       trades_count: 1,
-//       trades: [
-//         {
-//           market: params.market,
-//           uuid: uuidv4(),
-//           price: tick.trade_price,
-//           volume: floor(volume, 8),
-//           funds: floor(tick.trade_price * volume, 4),
-//           created_at: format(new Date(tick.timestamp), 'isoDateTime'),
-//           side: 'bid',
-//         },
-//       ],
-//     }
-//     return {
-//       uuid,
-//       side: 'bid',
-//       ord_type: 'price',
-//       price: params.price,
-//       state: 'wait',
-//       market: params.market,
-//       created_at: format(new Date(tick.timestamp), 'isoDateTime'),
-//       volume: null,
-//       remaining_volume: null,
-//       reserved_fee: params.price / 0.0005,
-//       remaining_fee: params.price / 0.0005,
-//       paid_fee: 0,
-//       locked: params.price + (params.price / 0.0005),
-//       executed_volume: 0,
-//       trades_count: 0,
-//     }
-//   }
+  async bidMarket(params: {
+    market: string
+    price: number
+  }): Promise<Iu.OrderType> {
+    if(this.status) {
+      const status = await this.updateStatus()
+      if(!(status.side === 'bid' && status.ord_type === 'limit' && status.state === 'cancel')) {
+        throw new OrderError(`bid 할 수 있는 상태가 아니다. (side: ${status.side}, ord_type: ${status.ord_type}, state: ${status.state})`)
+      }
+    }
+    const tick = (await this.api.getTradesTicks({market: params.market})).data[0]
+    const price = await this.suitedBidVol(params.market, params.price)
+    const volume = price / tick.trade_price
+    const uuid = uuidv4()
+    this._statusBid = {
+      uuid,
+      side: 'bid',
+      ord_type: 'price',
+      price: price,
+      state: 'cancel',
+      market: params.market,
+      created_at: format(new Date(tick.timestamp), 'isoDateTime'),
+      volume: null,
+      remaining_volume: null,
+      reserved_fee: price / 0.0005,
+      remaining_fee: 0,
+      paid_fee: price / 0.0005,
+      locked: 0,
+      executed_volume: floor(volume, 8),
+      trades_count: 1,
+      trades: [
+        {
+          market: params.market,
+          uuid: uuidv4(),
+          price: tick.trade_price,
+          volume: floor(volume, 8),
+          funds: floor(tick.trade_price * volume, 4),
+          created_at: format(new Date(tick.timestamp), 'isoDateTime'),
+          side: 'bid',
+        },
+      ],
+    }
+    return {
+      uuid,
+      side: 'bid',
+      ord_type: 'price',
+      price: price,
+      state: 'wait',
+      market: params.market,
+      created_at: format(new Date(tick.timestamp), 'isoDateTime'),
+      volume: null,
+      remaining_volume: null,
+      reserved_fee: params.price / 0.0005,
+      remaining_fee: params.price / 0.0005,
+      paid_fee: 0,
+      locked: params.price + (params.price / 0.0005),
+      executed_volume: 0,
+      trades_count: 0,
+    }
+  }
 
-//   async askMarket(id?: string): Promise<Iu.OrderType> {
-//     const status = await this.updateStatus()
-//     if(!status) {
-//       throw new OrderError('아직 bid 하지 않았다.')
-//     }
-//     if(status.side !== 'bid') {
-//       throw new OrderError(`ask 할 상태가 아니다. (side: ${status.side}, ord_type: ${status.ord_type}, state: ${status.state})`)
-//     }
-//     if(status.ord_type === 'limit') {
-//       if(status.state !== 'done') {
-//         throw new OrderError(`ask 할 상태가 아니다. (side: ${status.side}, ord_type: ${status.ord_type}, state: ${status.state})`)
-//       }
-//     }
-//     if(status.ord_type === 'price') {
-//       if(!(status.state === 'done' || status.state === 'cancel')) {
-//         throw new OrderError(`ask 할 상태가 아니다. (side: ${status.side}, ord_type: ${status.ord_type}, state: ${status.state})`)
-//       }
-//     }
-//     const tick = (await this.api.getTradesTicks({
-//       market: status.market,
-//     })).data[0]
-//     const uuid = uuidv4()
-//     const volume = status.executed_volume
-//     this._statusAsk = {
-//       uuid,
-//       side: 'ask',
-//       ord_type: 'market',
-//       price: null,
-//       state: 'done',
-//       market: status.market,
-//       created_at: format(new Date(tick.timestamp), 'isoDateTime'),
-//       volume,
-//       remaining_volume: 0,
-//       reserved_fee: 0,
-//       remaining_fee: 0,
-//       paid_fee: floor(tick.trade_price * volume * 0.0005, 8),
-//       locked: 0,
-//       executed_volume: volume,
-//       trades_count: 1,
-//       trades: [
-//         {
-//           market: status.market,
-//           uuid: uuidv4(),
-//           price: tick.trade_price,
-//           volume,
-//           funds: floor(tick.trade_price * volume, 4),
-//           created_at: format(new Date(tick.timestamp), 'isoDateTime'),
-//           side: 'ask',
-//         },
-//       ],
-//     }
-//     return {
-//       uuid,
-//       side: 'ask',
-//       ord_type: 'market',
-//       price: null,
-//       state: 'wait',
-//       market: status.market,
-//       created_at: format(new Date(tick.timestamp), 'isoDateTime'),
-//       volume: status.executed_volume,
-//       remaining_volume: status.executed_volume,
-//       reserved_fee: 0,
-//       remaining_fee: 0,
-//       paid_fee: 0,
-//       locked: status.executed_volume,
-//       executed_volume: 0,
-//       trades_count: 0,
-//     }
-//   }
-// }
+  async askMarket(): Promise<Iu.OrderType> {
+    const status = await this.updateStatus()
+    if(!status) {
+      throw new OrderError('아직 bid 하지 않았다.')
+    }
+    if(status.side === 'bid') {
+      if(status.ord_type === 'limit') {
+        if(status.state !== 'done') {
+          throw new OrderError(`ask 할 상태가 아니다. (side: ${status.side}, ord_type: ${status.ord_type}, state: ${status.state})`)
+        }
+      } else if(status.ord_type === 'price') {
+        if(status.state !== 'cancel') {
+          throw new OrderError(`ask 할 상태가 아니다. (side: ${status.side}, ord_type: ${status.ord_type}, state: ${status.state})`)
+        }
+      }
+    }
+    if(status.side === 'ask') {
+      if(!(status.ord_type === 'limit' && status.state === 'cancel')) {
+        throw new OrderError(`ask 할 상태가 아니다. (side: ${status.side}, ord_type: ${status.ord_type}, state: ${status.state})`)
+      }
+    }
+    const tick = (await this.api.getTradesTicks({ market: status.market })).data[0]
+    const volume = await this.suitedAskVol(status.market
+      , tick.trade_price
+      , status.executed_volume)
+    const uuid = uuidv4()
+    this._statusAsk = {
+      uuid,
+      side: 'ask',
+      ord_type: 'market',
+      price: null,
+      state: 'done',
+      market: status.market,
+      created_at: format(new Date(tick.timestamp), 'isoDateTime'),
+      volume,
+      remaining_volume: 0,
+      reserved_fee: 0,
+      remaining_fee: 0,
+      paid_fee: floor(tick.trade_price * volume * 0.0005, 8),
+      locked: 0,
+      executed_volume: volume,
+      trades_count: 1,
+      trades: [
+        {
+          market: status.market,
+          uuid: uuidv4(),
+          price: tick.trade_price,
+          volume,
+          funds: floor(tick.trade_price * volume, 4),
+          created_at: format(new Date(tick.timestamp), 'isoDateTime'),
+          side: 'ask',
+        },
+      ],
+    }
+    return {
+      uuid,
+      side: 'ask',
+      ord_type: 'market',
+      price: null,
+      state: 'wait',
+      market: status.market,
+      created_at: format(new Date(tick.timestamp), 'isoDateTime'),
+      volume: status.executed_volume,
+      remaining_volume: status.executed_volume,
+      reserved_fee: 0,
+      remaining_fee: 0,
+      paid_fee: 0,
+      locked: status.executed_volume,
+      executed_volume: 0,
+      trades_count: 0,
+    }
+  }
+
+  private async suitedBidVol(market: string, volume: number): Promise<number> {
+    const chance = (await this.api.getOrdersChance({market})).data
+    const min = chance.market.bid.min_total
+    if(volume < min) {
+      throw new OrderError(`주문금액이 최소주문금액 보다 적다. (volume: ${volume}, min: ${min})`)
+    }
+    const suit = Math.floor(volume / min) * min
+    return suit
+  }
+
+  private async suitedAskVol(market: string, price: number, volume: number): Promise<number> {
+    const chance = (await this.api.getOrdersChance({market})).data
+    const min = chance.market.ask.min_total
+    const minVol = floor(min / price, 8)
+    const suit = Math.max(volume, minVol)
+    return suit
+  }
+}

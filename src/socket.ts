@@ -178,7 +178,9 @@ export class UPbitSocket {
       this._initTrigger()
     }
     for(const bot of this.getBots()) {
-      await bot.init()
+      if(bot.init) {
+        await bot.init()
+      }
     }
     const req = this.requests()
     //console.log(req)
@@ -201,7 +203,9 @@ export class UPbitSocket {
 
   async close(): Promise<void> {
     for(const bot of this.getBots()) {
-      await bot.init()
+      if(bot.onClose) {
+        await bot.onClose()
+      }
     }
     return new Promise<void>((resolve, reject) => {
       if(this._ws) {
