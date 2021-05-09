@@ -16,8 +16,6 @@ class TestBot extends BaseSocketBot {
     super(code)
   }
   
-  async init() {}
-
   async onTrade(data: I.TradeType) {
     this._count++
     const floorTime = Math.floor(data.trade_timestamp / 5000)
@@ -30,6 +28,8 @@ class TestBot extends BaseSocketBot {
     }
   }
 
+  init = null
+  onClose = null
   onOrderbook = null
   onTicker = null
 }

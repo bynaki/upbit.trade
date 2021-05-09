@@ -121,8 +121,6 @@ class CandleBot extends BaseSocketBot {
     super(code)
   }
   
-  async init() {}
-
   async onTrade(tr: I.TradeType) {
     this._cm.push(tr)
     if(this._preTime === -1) {
@@ -140,6 +138,8 @@ class CandleBot extends BaseSocketBot {
     }
   }
 
+  init = null
+  onClose = null
   onOrderbook = null
   onTicker = null
 }
