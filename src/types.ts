@@ -25,7 +25,6 @@ export enum ReqType {
 }
 
 export enum SocketState {
-  NotCreated = -1,
   Connecting = CONNECTING,
   Open = OPEN,
   Closing = CLOSING,

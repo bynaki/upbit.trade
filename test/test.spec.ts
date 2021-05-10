@@ -413,7 +413,7 @@ test.cb.skip('websocket > ticker', t => {
   }
 })
 
-test('BaseSocketBot > id', t => {
+test('BaseSocketBot > name', t => {
   const bot = new TestBot('KRW-BTC')
   t.is(bot.name, 'TestBot:KRW-BTC')
   t.pass()
@@ -432,11 +432,33 @@ test.serial('UPbitSocket > #start() & #close()', async t => {
     'KRW-SNT',
     'KRW-WAVES',
   ])
-  t.is(us.state, I.SocketState.NotCreated)
+  t.is(us.state, I.SocketState.Closed)
   await us.start()
   t.is(us.state, I.SocketState.Open)
   await us.close()
   t.is(us.state, I.SocketState.Closed)
+})
+
+test.serial.cb('UPbitSocket > ping pong', t => {
+  t.timeout(5000)
+  const us = new UPbitSocket([
+    'KRW-BTC',
+    'KRW-ETH',
+    'KRW-NEO',
+    'KRW-MTL',
+    'KRW-LTC',
+    'KRW-XRP',
+    'KRW-ETC',
+    'KRW-OMG',
+    'KRW-SNT',
+    'KRW-WAVES',
+  ], 3000)
+  us.start()
+  t.false(us.isAlive)
+  setTimeout(() => {
+    t.true(us.isAlive)
+    t.end()
+  }, 4000)
 })
 
 test('UPbitSocket > add bot & get bot', t => {

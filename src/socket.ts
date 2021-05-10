@@ -4,6 +4,10 @@ import * as I from './types'
 import {
   BaseSocketBot
 } from './base.bot'
+import {
+  Logger,
+  // FileWriter,
+} from 'fourdollar'
 
 
 class BotManager {
@@ -90,46 +94,40 @@ class BotManager {
 
 type Constructor<T> = new (code: string) => T
 
-export class UPbitSocket {
+export class UPbitSocket extends Logger {
   static url = 'wss://api.upbit.com/websocket/v1'
 
   private _ws: WebSocket = null
   private _uuid: string
   private _codes: string[]
   private _botManager: BotManager
+  private _isAlive: boolean = false
 
-  constructor(codes: string[]) {
+  constructor(codes: string[], private readonly pingSec: number = 120 * 1000) {
+    super('UPbitSocket')
     this._codes = Object.assign([], codes)
     this._uuid = uuidv4()
     this._botManager = new BotManager(this._codes)
   }
 
-  private _initTrigger() {
-    this._ws.onmessage = e => {
-      const data = JSON.parse(e.data.toString('utf-8'))
-      const bots = this.getBots(data.type, data.code)
-      bots.forEach(b => b.trigger(data))
-    }
-  }
-
-  on(event: 'open', listener: (event: I.OpenEvent) => void): void
-  on(event: 'error', listener: (event: I.ErrorEvent) => void): void
-  on(event: 'close', listener: (event: I.CloseEvent) => void): void
-  on(event: 'open'|'error'|'close', listener: any) {
-    switch(event) {
-      case 'open':
-        this._ws.onopen = listener
-        break
-      case 'error':
-        this._ws.onerror = listener
-        break
-      case 'close':
-        this._ws.onclose = listener
-        break
-      default:
-        throw new Error('only open|close|error')
-    }
-  }
+  // on(event: 'open', listener: (event: I.OpenEvent) => void): void
+  // on(event: 'error', listener: (event: I.ErrorEvent) => void): void
+  // on(event: 'close', listener: (event: I.CloseEvent) => void): void
+  // on(event: 'open'|'error'|'close', listener: any) {
+  //   switch(event) {
+  //     case 'open':
+  //       this._ws.onopen = listener
+  //       break
+  //     case 'error':
+  //       this._ws.onerror = listener
+  //       break
+  //     case 'close':
+  //       this._ws.onclose = listener
+  //       break
+  //     default:
+  //       throw new Error('only open|close|error')
+  //   }
+  // }
 
   private _req(reqData: any[], bot: BaseSocketBot) {
     if(bot.onTrade && !reqData.some(i => i['type'] === 'trade')) {
@@ -173,9 +171,12 @@ export class UPbitSocket {
   }
 
   async start(): Promise<void> {
-    if(!this._ws) {
-      this._ws = new WebSocket(UPbitSocket.url)
-      this._initTrigger()
+    await this.close()
+    this._ws = new WebSocket(UPbitSocket.url)
+    this._ws.onmessage = e => {
+      const data = JSON.parse(e.data.toString('utf-8'))
+      const bots = this.getBots(data.type, data.code)
+      bots.forEach(b => b.trigger(data))
     }
     for(const bot of this.getBots()) {
       if(bot.init) {
@@ -185,16 +186,37 @@ export class UPbitSocket {
     const req = this.requests()
     //console.log(req)
     return new Promise<void>((resolve, reject) => {
-      if(this._ws.readyState !== WebSocket.OPEN) {
-        this._ws.once('open', () => {
+      this._ws.once('open', () => {
+        try {
           this._ws.send(JSON.stringify(req))
+          this._ws.on('close', () => {
+            this.log('closed')
+          })
+          this._ws.on('pong', (data) => {
+            this._isAlive = true
+            this.log('alive')
+          })
+          const id = setInterval(() => {
+            this._isAlive = false
+            if(!this._ws) {
+              clearInterval(id)
+              return
+            }
+            if(this._ws.readyState === I.SocketState.Open) {
+              this._ws.ping()
+            }
+          }, this.pingSec)
+          this.log('opened')
           resolve()
-        })
-        return
-      }
-      this._ws.send(JSON.stringify(req))
-      resolve()
+        } catch(e) {
+          reject(e)
+        }
+      })
     })
+  }
+
+  get isAlive(): boolean {
+    return this._isAlive
   }
 
   restart(): Promise<void> {
@@ -202,19 +224,16 @@ export class UPbitSocket {
   }
 
   async close(): Promise<void> {
-    for(const bot of this.getBots()) {
-      if(bot.onClose) {
-        await bot.onClose()
+    if(this._ws) {
+      this._ws.terminate()
+      this._ws = null
+      this._isAlive = false
+      for(const bot of this.getBots()) {
+        if(bot.onClose) {
+          await bot.onClose()
+        }
       }
     }
-    return new Promise<void>((resolve, reject) => {
-      if(this._ws) {
-        this._ws.close()
-        this._ws.once('close', () => {
-          resolve()
-        })
-      }
-    })
   }
 
   getBots<B extends BaseSocketBot>(): B[]
@@ -240,6 +259,8 @@ export class UPbitSocket {
     if(this._ws) {
       return this._ws.readyState
     }
-    return I.SocketState.NotCreated
+    return I.SocketState.Closed
   }
 }
+
+// BaseSocketBot.writer.link = new FileWriter('./log/socket.log', '1d')
