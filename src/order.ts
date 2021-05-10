@@ -316,9 +316,9 @@ export class OrderMock implements IOrder {
       created_at: format(new Date(tick.timestamp), 'isoDateTime'),
       volume: null,
       remaining_volume: null,
-      reserved_fee: price / 0.0005,
+      reserved_fee: floor(price * 0.0005, 8),
       remaining_fee: 0,
-      paid_fee: price / 0.0005,
+      paid_fee: floor(price * 0.0005, 8),
       locked: 0,
       executed_volume: floor(volume, 8),
       trades_count: 1,
@@ -344,10 +344,10 @@ export class OrderMock implements IOrder {
       created_at: format(new Date(tick.timestamp), 'isoDateTime'),
       volume: null,
       remaining_volume: null,
-      reserved_fee: params.price / 0.0005,
-      remaining_fee: params.price / 0.0005,
+      reserved_fee: floor(params.price * 0.0005, 8),
+      remaining_fee: floor(params.price * 0.0005, 8),
       paid_fee: 0,
-      locked: params.price + (params.price / 0.0005),
+      locked: floor(params.price + (params.price * 0.0005), 8),
       executed_volume: 0,
       trades_count: 0,
     }
@@ -375,9 +375,7 @@ export class OrderMock implements IOrder {
       }
     }
     const tick = (await this.api.getTradesTicks({ market: status.market })).data[0]
-    const volume = await this.suitedAskVol(status.market
-      , tick.trade_price
-      , status.executed_volume)
+    const volume = status.executed_volume
     const uuid = uuidv4()
     this._statusAsk = {
       uuid,
@@ -387,20 +385,20 @@ export class OrderMock implements IOrder {
       state: 'done',
       market: status.market,
       created_at: format(new Date(tick.timestamp), 'isoDateTime'),
-      volume,
+      volume: floor(volume, 8),
       remaining_volume: 0,
       reserved_fee: 0,
       remaining_fee: 0,
       paid_fee: floor(tick.trade_price * volume * 0.0005, 8),
       locked: 0,
-      executed_volume: volume,
+      executed_volume: floor(volume, 8),
       trades_count: 1,
       trades: [
         {
           market: status.market,
           uuid: uuidv4(),
           price: tick.trade_price,
-          volume,
+          volume: floor(volume, 8),
           funds: floor(tick.trade_price * volume, 4),
           created_at: format(new Date(tick.timestamp), 'isoDateTime'),
           side: 'ask',
@@ -415,12 +413,12 @@ export class OrderMock implements IOrder {
       state: 'wait',
       market: status.market,
       created_at: format(new Date(tick.timestamp), 'isoDateTime'),
-      volume: status.executed_volume,
-      remaining_volume: status.executed_volume,
+      volume: floor(volume, 8),
+      remaining_volume: floor(volume, 8),
       reserved_fee: 0,
       remaining_fee: 0,
       paid_fee: 0,
-      locked: status.executed_volume,
+      locked: floor(volume, 8),
       executed_volume: 0,
       trades_count: 0,
     }
