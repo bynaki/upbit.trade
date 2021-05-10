@@ -20,3 +20,4 @@ yarn.lock
 record.log
 limit.log
 market.log
+log/
