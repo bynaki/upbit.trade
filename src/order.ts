@@ -51,6 +51,7 @@ export interface IOrder {
 export class Order implements IOrder {
   private _statusBid: Iu.OrderType = null
   private _statusAsk: Iu.OrderType = null
+  private _canceling = false
 
   constructor(private readonly api: UPbit) {
   }
@@ -86,6 +87,9 @@ export class Order implements IOrder {
   }
 
   async cancel(): Promise<Iu.OrderType> {
+    if(this._canceling === true) {
+      return this.status
+    }
     const status = await this.updateStatus()
     if(!status) {
       throw new OrderError('매수/매도가 없다.')
@@ -96,6 +100,7 @@ export class Order implements IOrder {
     const res = (await this.api.cancel({
       uuid: status.uuid
     })).data
+    this._canceling = true
     if(status.side === 'bid') {
       this._statusBid = res
     } else {
@@ -131,6 +136,7 @@ export class Order implements IOrder {
       volume: ceil(volume / price, 8),
     }
     this._statusBid = (await this.api.order(orderParams)).data
+    this._canceling = false
     return this._statusBid
   }
 
@@ -167,6 +173,7 @@ export class Order implements IOrder {
       volume: ceil(volume, 8),
     }
     this._statusAsk = (await this.api.order(params)).data
+    this._canceling = false
     return this._statusAsk
   }
 
@@ -194,6 +201,7 @@ export class Order implements IOrder {
       price,
     }
     this._statusBid = (await this.api.order(orderParams)).data
+    this._canceling = false
     return this._statusBid
   }
 
@@ -214,7 +222,7 @@ export class Order implements IOrder {
       }
     }
     if(status.side === 'ask') {
-      if(!(status.ord_type === 'limit' && status.state === 'cancel')) {
+      if(status.state !== 'cancel') {
         throw new OrderError(`ask 할 상태가 아니다. (side: ${status.side}, ord_type: ${status.ord_type}, state: ${status.state})`)
       }
     }
@@ -229,6 +237,7 @@ export class Order implements IOrder {
       volume: ceil(volume, 8),
     }
     this._statusAsk = (await this.api.order(params)).data
+    this._canceling = false
     return this._statusAsk
   }
 
