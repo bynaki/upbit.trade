@@ -101,7 +101,6 @@ export class UPbitSocket extends Logger {
   private _uuid: string
   private _codes: string[]
   private _botManager: BotManager
-  private _isAlive: boolean = false
 
   constructor(codes: string[], private readonly pingSec: number = 120 * 1000) {
     super('UPbitSocket')
@@ -171,68 +170,59 @@ export class UPbitSocket extends Logger {
   }
 
   async start(): Promise<void> {
-    await this.close()
-    this._ws = new WebSocket(UPbitSocket.url)
-    this._ws.onmessage = e => {
-      const data = JSON.parse(e.data.toString('utf-8'))
-      const bots = this.getBots(data.type, data.code)
-      bots.forEach(b => b.trigger(data))
-    }
     for(const bot of this.getBots()) {
       if(bot.init) {
         await bot.init()
       }
     }
+    this.resume()
+  }
+
+  private resume(): void {
     const req = this.requests()
-    //console.log(req)
-    return new Promise<void>((resolve, reject) => {
-      this._ws.once('open', () => {
-        try {
-          this._ws.send(JSON.stringify(req))
-          this._ws.on('close', () => {
-            this.log('closed')
-          })
-          this._ws.on('pong', (data) => {
-            this._isAlive = true
-            this.log('alive')
-          })
-          const id = setInterval(() => {
-            this._isAlive = false
-            if(!this._ws) {
-              clearInterval(id)
-              return
-            }
-            if(this._ws.readyState === I.SocketState.Open) {
-              this._ws.ping()
-            }
-          }, this.pingSec)
-          this.log('opened')
-          resolve()
-        } catch(e) {
-          reject(e)
-        }
-      })
+    let ws = new WebSocket(UPbitSocket.url)
+    ws.on('message', data => {
+      const d = JSON.parse(data.toString('utf-8'))
+      const bots = this.getBots(d.type, d.code)
+      bots.forEach(b => b.trigger(d))
     })
-  }
-
-  get isAlive(): boolean {
-    return this._isAlive
-  }
-
-  restart(): Promise<void> {
-    return this.start()
+    ws.on('close', (code, reason) => {
+      this.log('closed -----', `code: ${code}, reason: ${reason}`)
+      ws = null
+      if(this._ws !== null) {
+        this.log('resume -----')
+        this.resume()
+      }
+    })
+    ws.on('pong', data => {
+      this.log('alive')
+    })
+    ws.once('open', () => {
+      ws.send(JSON.stringify(req))
+      const id = setInterval(() => {
+        if(ws === null) {
+          clearInterval(id)
+          return
+        }
+        if(ws.readyState === I.SocketState.Open) {
+          ws.ping()
+        }
+      }, this.pingSec)
+      this.log('opened -----')
+    })
+    this._ws = ws
   }
 
   async close(): Promise<void> {
     if(this._ws) {
-      this._ws.terminate()
+      const ws = this._ws
       this._ws = null
-      this._isAlive = false
       for(const bot of this.getBots()) {
         if(bot.onClose) {
           await bot.onClose()
         }
       }
+      ws.terminate()
     }
   }
 
@@ -262,5 +252,3 @@ export class UPbitSocket extends Logger {
     return I.SocketState.Closed
   }
 }
-
-// BaseSocketBot.writer.link = new FileWriter('./log/socket.log', '1d')

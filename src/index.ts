@@ -14,3 +14,7 @@ export {
 export {
   FileWriter,
 } from 'fourdollar'
+import WebSocket from 'ws'
+export {
+  WebSocket,
+}

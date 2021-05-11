@@ -7,7 +7,7 @@ import {
   BaseSocketBot,
   types as I,
 } from '../src'
-import $4 from 'fourdollar'
+import $4, { toStringQuery } from 'fourdollar'
 import {
   join,
 } from 'path'
@@ -419,7 +419,8 @@ test('BaseSocketBot > name', t => {
   t.pass()
 })
 
-test.serial('UPbitSocket > #start() & #close()', async t => {
+test.serial.cb('UPbitSocket > #start() & #close()', t => {
+  t.timeout(3000)
   const us = new UPbitSocket([
     'KRW-BTC',
     'KRW-ETH',
@@ -433,32 +434,18 @@ test.serial('UPbitSocket > #start() & #close()', async t => {
     'KRW-WAVES',
   ])
   t.is(us.state, I.SocketState.Closed)
-  await us.start()
-  t.is(us.state, I.SocketState.Open)
-  await us.close()
-  t.is(us.state, I.SocketState.Closed)
-})
-
-test.serial.cb('UPbitSocket > ping pong', t => {
-  t.timeout(5000)
-  const us = new UPbitSocket([
-    'KRW-BTC',
-    'KRW-ETH',
-    'KRW-NEO',
-    'KRW-MTL',
-    'KRW-LTC',
-    'KRW-XRP',
-    'KRW-ETC',
-    'KRW-OMG',
-    'KRW-SNT',
-    'KRW-WAVES',
-  ], 3000)
   us.start()
-  t.false(us.isAlive)
-  setTimeout(() => {
-    t.true(us.isAlive)
-    t.end()
-  }, 4000)
+  t.is(us.state, I.SocketState.Connecting)
+  const id = setInterval(() => {
+    if(us.state === I.SocketState.Open) {
+      t.is(us.state, I.SocketState.Open)
+      clearInterval(id)
+      us.close()
+      t.is(us.state, I.SocketState.Closed)
+      t.end()
+      return
+    }
+  }, 1000)
 })
 
 test('UPbitSocket > add bot & get bot', t => {
