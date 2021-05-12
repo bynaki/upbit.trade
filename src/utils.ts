@@ -2,6 +2,9 @@ import {
   readFileSync
 } from 'fs'
 import * as I from './types'
+import {
+  UPbit
+} from 'cryptocurrency.api'
 
 
 export function getConfig(fileName: string = './config.json'): I.Config {
@@ -45,4 +48,20 @@ export function floorOrderbook(price: number) {
     return Math.floor(price / 0.01) * 0.01
   }
   return NaN
+}
+
+export async function allMarketCode(
+  opt: {reg: RegExp, exceptWarnig: boolean} = {reg: /^KRW/, exceptWarnig: true}) {
+  const api = new UPbit({
+    accessKey: 'xxx',
+    secretKey: 'xxx',
+  })
+  const res = (await api.getMarket(opt.exceptWarnig)).data
+  return res.filter(m => opt.reg.test(m.market))
+    .filter(m => {
+      if(opt.exceptWarnig) {
+        return m.market_warning === 'NONE'
+      }
+      return true
+    }).map(m => m.market)
 }

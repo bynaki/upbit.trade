@@ -130,4 +130,5 @@ export interface Config {
   order: {
     atime_price: number
   }
+  markets: string[]
 }
