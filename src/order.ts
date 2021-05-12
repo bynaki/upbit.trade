@@ -82,7 +82,7 @@ export class Order implements IOrder {
     const res = (await this.api.getOrderDetail({
       uuid: this._statusAsk.uuid
     })).data
-    this._statusBid = res
+    this._statusAsk = res
     return res
   }
 
