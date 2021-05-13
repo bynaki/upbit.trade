@@ -170,7 +170,7 @@ export class Order implements IOrder {
       side: 'ask',
       ord_type: 'limit',
       price: price,
-      volume: ceil(volume, 8),
+      volume: volume,
     }
     this._statusAsk = (await this.api.order(params)).data
     this._canceling = false
@@ -262,7 +262,7 @@ export class Order implements IOrder {
     const balance = chance.ask_account.balance
     const minVol = ceil(min / price, 8)
     if(balance < minVol) {
-      throw new BalanceError(`Balance가 최소주문량 보다 적자. (balance: ${balance}, minVol: ${minVol})`)
+      throw new BalanceError(`Balance가 최소주문량 보다 적다. (balance: ${balance}, minVol: ${minVol})`)
     }
     const suit = Math.max(volume, minVol)
     return suit
