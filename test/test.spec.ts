@@ -28,8 +28,8 @@ class TestBot extends BaseSocketBot {
   async onTrade(data: I.TradeType) {
   }
 
-  init = null
-  onClose = null
+  start = null
+  finish = null
   onOrderbook = null
   onTicker = null
 }
@@ -46,8 +46,8 @@ class TestBot2 extends BaseSocketBot {
   async onOrderbook(data: I.OrderbookType) {
   }
 
-  init = null
-  onClose = null
+  start = null
+  finish = null
   onTicker = null
 }
 
@@ -62,7 +62,8 @@ class TestBot3 extends BaseSocketBot {
   async onOrderbook(data: I.OrderbookType) {
   }
 
-  init = null
+  start = null
+  finish = null
   onClose = null
   onTicker = null
 }
@@ -78,11 +79,12 @@ class TestTradeBot extends BaseSocketBot {
     this._t.plan(50)
   }
 
-  async init() {
+  async start() {
     this._t.pass()
   }
 
   async onTrade(data: I.TradeType) {
+    console.log(data)
     if(this._td.length < 10) {
       this._td.push(data)
       this._t.deepEqual(Object.keys(data), [
@@ -116,7 +118,7 @@ class TestTradeBot extends BaseSocketBot {
     }
   }
 
-  onClose = null
+  finish = null
   onOrderbook = null
   onTicker = null
 }
@@ -132,11 +134,12 @@ class TestOrderbookBot extends BaseSocketBot {
     this._t.plan(61)
   }
 
-  async init() {
+  async start() {
     this._t.pass()
   }
 
   async onOrderbook(data: I.OrderbookType) {
+    console.log(data)
     if(this._td.length < 10) {
       this._td.push(data)
       this._t.deepEqual(Object.keys(data), [
@@ -169,7 +172,7 @@ class TestOrderbookBot extends BaseSocketBot {
     }
   }
 
-  onClose = null
+  finish = null
   onTrade = null
   onTicker = null
 }
@@ -185,11 +188,12 @@ class TestTickerBot extends BaseSocketBot {
     this._t.plan(41)
   }
 
-  async init() {
+  async start() {
     this._t.pass()
   }
 
   async onTicker(data: I.TickerType) {
+    console.log(data)
     if(this._td.length < 10) {
       this._td.push(data)
       this._t.deepEqual(Object.keys(data), [
@@ -226,7 +230,7 @@ class TestTickerBot extends BaseSocketBot {
     }
   }
 
-  onClose = null
+  finish = null
   onOrderbook = null
   onTrade = null
 }
@@ -243,7 +247,7 @@ class TestQueueBot extends BaseSocketBot {
     t.plan(7)
   }
 
-  async init() {
+  async start() {
     this._t.pass()
   }
   
@@ -267,7 +271,7 @@ class TestQueueBot extends BaseSocketBot {
     }
   }
 
-  onClose = null
+  finish = null
   onOrderbook = null
   onTicker = null
 }
@@ -283,7 +287,7 @@ class TestLogBot extends BaseSocketBot {
     this._t.plan(2)
   }
   
-  async init() {
+  async start() {
     this._origin = TestLogBot.writer
     TestLogBot.writer = new $4.FileWriter(join(__dirname, 'log', 'test.log'), '1d')
     this._t.pass()
@@ -301,7 +305,7 @@ class TestLogBot extends BaseSocketBot {
 
   onOrderbook = null
   onTicker = null
-  onClose = null
+  finish = null
 }
 
 
@@ -419,7 +423,7 @@ test('BaseSocketBot > name', t => {
   t.pass()
 })
 
-test.serial.cb('UPbitSocket > #start() & #close()', t => {
+test.serial('UPbitSocket > #start() & #close()', async t => {
   t.timeout(3000)
   const us = new UPbitSocket([
     'KRW-BTC',
@@ -434,18 +438,10 @@ test.serial.cb('UPbitSocket > #start() & #close()', t => {
     'KRW-WAVES',
   ])
   t.is(us.state, I.SocketState.Closed)
-  us.start()
-  t.is(us.state, I.SocketState.Connecting)
-  const id = setInterval(() => {
-    if(us.state === I.SocketState.Open) {
-      t.is(us.state, I.SocketState.Open)
-      clearInterval(id)
-      us.close()
-      t.is(us.state, I.SocketState.Closed)
-      t.end()
-      return
-    }
-  }, 1000)
+  await us.open()
+  t.is(us.state, I.SocketState.Open)
+  await us.close()
+  t.is(us.state, I.SocketState.Closed)
 })
 
 test('UPbitSocket > add bot & get bot', t => {
@@ -588,7 +584,7 @@ test.serial.cb('TestTradeBot', t => {
     'KRW-WAVES',
   ])
   us.addBot(new TestTradeBot('KRW-BTC', t))
-  us.start()
+  us.open()
 })
 
 test.serial.cb('TestOrderbookBot', t => {
@@ -605,7 +601,7 @@ test.serial.cb('TestOrderbookBot', t => {
     'KRW-WAVES',
   ])
   us.addBot(new TestOrderbookBot('KRW-BTC', t))
-  us.start()
+  us.open()
 })
 
 test.serial.cb('TestTickerBot', t => {
@@ -622,20 +618,20 @@ test.serial.cb('TestTickerBot', t => {
     'KRW-WAVES',
   ])
   us.addBot(new TestTickerBot('KRW-BTC', t))
-  us.start()
+  us.open()
 })
 
 test.serial.cb('TestLogBot', t => {
   const us = new UPbitSocket(['KRW-BTC'])
   us.addBot(new TestLogBot('KRW-BTC', t))
-  us.start()
+  us.open()
 })
 
 test.serial.cb('TestQueueBot', t => {
   t.timeout(20000)
   const us = new UPbitSocket(['KRW-BTC'])
   us.addBot(new TestQueueBot('KRW-BTC', t))
-  us.start()
+  us.open()
 })
 
 test.after(() => remove(join(__dirname, 'log')))

@@ -73,10 +73,10 @@
   resolved "https://registry.yarnpkg.com/@types/normalize-package-data/-/normalize-package-data-2.4.0.tgz#e486d0d97396d79beedd0a6e33f4534ff6b4973e"
   integrity sha512-f5j5b/Gf71L+dbqxIpQ4Z2WlmI/mPJ0fOkGGmFgtb6sAu97EPczzbS3/tJKxmcYDj55OX6ssqwDAWOHIYDRDGA==
 
-"@types/ws@^7.4.2":
-  version "7.4.2"
-  resolved "https://registry.yarnpkg.com/@types/ws/-/ws-7.4.2.tgz#bfe739b5f8b3a39742605fbe415ae7e88ee614c8"
-  integrity sha512-PbeN0Eydl7LQl4OIav29YmkO2LxbVuz3nZD/kb19lOS+wLgIkRbWMNmU/QQR7ABpOJ7D7xDOU8co7iohObewrw==
+"@types/ws@^7.4.4":
+  version "7.4.4"
+  resolved "https://registry.yarnpkg.com/@types/ws/-/ws-7.4.4.tgz#93e1e00824c1de2608c30e6de4303ab3b4c0c9bc"
+  integrity sha512-d/7W23JAXPodQNbOZNXvl2K+bqAQrCMwlh/nuQsPSQk6Fq0opHoPrUw43aHsvSbIiQPr8Of2hkFbnz1XBFVyZQ==
   dependencies:
     "@types/node" "*"
 
@@ -619,10 +619,10 @@ crypto-random-string@^2.0.0:
   resolved "https://registry.yarnpkg.com/crypto-random-string/-/crypto-random-string-2.0.0.tgz#ef2a7a966ec11083388369baa02ebead229b30d5"
   integrity sha512-v1plID3y9r/lPhviJ1wrXpLeyUIGAZ2SHNYTEapm7/8A9nLPoyvVp3RK/EPFqn5kEznyWgYZNsRtYYIWbuG8KA==
 
-cryptocurrency.api@^1.1.2:
-  version "1.1.2"
-  resolved "https://registry.yarnpkg.com/cryptocurrency.api/-/cryptocurrency.api-1.1.2.tgz#dac4b4c84c47ad0a53f9bbf128e0a0188275caeb"
-  integrity sha512-FZfVLGfjY2ZtoDLv658NVxYJpKB9tJrRUyAMeInKpdn60dq3A1cuJ72XTxKBEMerBOWK9N6Ik1Q/9dXUxpdhhQ==
+cryptocurrency.api@^1.2.1:
+  version "1.2.1"
+  resolved "https://registry.yarnpkg.com/cryptocurrency.api/-/cryptocurrency.api-1.2.1.tgz#07f92dd7eb93756670c25e3baa8b9fa74bb6f3e1"
+  integrity sha512-I8ufqKlDHZG4bRFXagFXgtJt6Z9T6Ob4K1o4KOMdVahV4LcClY+xZKYqpuvUF72k17Gpdx5wzMb6wAuvS5ZAeg==
   dependencies:
     axios "^0.21.1"
     fourdollar.isfloat "^1.0.1"
