@@ -138,8 +138,8 @@ class CandleBot extends BaseSocketBot {
     }
   }
 
-  init = null
-  onClose = null
+  start = null
+  finish = null
   onOrderbook = null
   onTicker = null
 }
@@ -147,4 +147,4 @@ class CandleBot extends BaseSocketBot {
 
 const ws = new UPbitSocket(['KRW-BTC'])
 ws.addBotClass(CandleBot)
-ws.start()
+ws.open()

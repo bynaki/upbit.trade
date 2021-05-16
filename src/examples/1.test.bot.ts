@@ -28,8 +28,8 @@ class TestBot extends BaseSocketBot {
     }
   }
 
-  init = null
-  onClose = null
+  start = null
+  finish = null
   onOrderbook = null
   onTicker = null
 }
@@ -37,4 +37,4 @@ class TestBot extends BaseSocketBot {
 
 const ws = new UPbitSocket(['KRW-BTC'])
 ws.addBotClass(TestBot)
-ws.start()
+ws.open()
