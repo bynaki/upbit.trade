@@ -942,10 +942,10 @@ fourdollar.tostringquery@^1.1.0:
   resolved "https://registry.yarnpkg.com/fourdollar.tostringquery/-/fourdollar.tostringquery-1.1.0.tgz#1d44b61f9937691532823ba3dcdc7a16ca0d7565"
   integrity sha512-WBtrsnapEFhoN+NTTdfUyuthYp5TrKijLr+W3IWu2qdzNIALsiI/hWM98NIUC90Llv4+wVF4eryU2mkcvlD0hQ==
 
-fourdollar@^2.1.3:
-  version "2.1.3"
-  resolved "https://registry.yarnpkg.com/fourdollar/-/fourdollar-2.1.3.tgz#ea43166f672d9bd03a7f7fcf5543a93e876b48a9"
-  integrity sha512-RgwKMgivSOHqgZb0WNOfmBJiKLdyC165PJWaMWfnma8CnMPCw0zfpTE8NqqyznG3s3e3nRNtjLcfVdsJ4Xomrw==
+fourdollar@^2.1.4:
+  version "2.1.4"
+  resolved "https://registry.yarnpkg.com/fourdollar/-/fourdollar-2.1.4.tgz#cdc6cc830c41b995be2c8ffa4c53be86099e2ee3"
+  integrity sha512-z8B92qAROQ+kskxKhMS0MmZgsKtkO9qOkcdkZ2+jef3mkhYCHtFGraeDdT0+nzUj0RFblnS8MpX64yi8x5hViQ==
   dependencies:
     fecha "^4.2.1"
     fs-extra "^10.0.0"
