@@ -10,6 +10,7 @@ export {
   upbit_types,
   UPbit,
   toNumbers,
+  RequestError,
 } from 'cryptocurrency.api'
 export {
   FileWriter,

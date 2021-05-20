@@ -11,6 +11,9 @@ import {
   CLOSING,
   CLOSED,
 } from 'ws'
+import {
+  upbit_types as Iu
+} from 'cryptocurrency.api'
 
 export {
   OpenEvent,
@@ -131,4 +134,14 @@ export interface Config {
     atime_price: number
   }
   markets: string[]
+}
+
+export interface HistoryType<C> {
+  time_stamp: number,
+  time: string,
+  comment: C,
+  bid: Iu.OrderDetailType,
+  bid_error: unknown,
+  ask: Iu.OrderDetailType,
+  ask_error: unknown,
 }

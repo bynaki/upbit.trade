@@ -7,7 +7,6 @@ import {
   format,
 } from 'fecha'
 import {
-  floor,
   ceil,
   floorOrderbook,
 } from './utils'
@@ -22,6 +21,7 @@ import {
 import {
   readFile,
 } from 'fs/promises'
+import * as I from './types'
 
 
 // export class BalanceError extends Error {
@@ -386,15 +386,6 @@ export class OrderMarket extends BaseOrder {
 }
 
 
-interface HistoryType<C> {
-  time_stamp: number,
-  time: string,
-  comment: C,
-  bid: Iu.OrderDetailType,
-  bid_error: unknown,
-  ask: Iu.OrderDetailType,
-  ask_error: unknown,
-}
 
 export class OrderHistory<C> {
   private _stream: WriteStream
@@ -407,7 +398,7 @@ export class OrderHistory<C> {
     })
   }
 
-  append(order: BaseOrder, comment?: C): Promise<HistoryType<C>>  {
+  append(order: BaseOrder, comment?: C): Promise<I.HistoryType<C>>  {
     const t = new Date()
     const contents = {
       time_stamp: t.getTime(),
@@ -430,7 +421,7 @@ export class OrderHistory<C> {
     })
   }
 
-  async read(): Promise<HistoryType<C>[]> {
+  async read(): Promise<I.HistoryType<C>[]> {
     const stringify = (await readFile(this.path)).toString()
     const splited = stringify.split('\n\n')
     splited.splice(0, 1)
