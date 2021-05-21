@@ -143,6 +143,7 @@ abstract class BaseOrder {
       }
       return res
     } catch(e) {
+      return null
     }
   }
 

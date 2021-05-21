@@ -16,7 +16,7 @@ import { RequestError } from 'cryptocurrency.api'
  * 지정가 매수매도
  * -- 실제로 거래됨 주의 --
  */
-if(false) {
+if(true) {
   const config = getConfig('./config.json')
   const api = new UPbit(config.upbit_keys)
   const order = new Order(api)
@@ -76,6 +76,11 @@ if(false) {
         clearInterval(id)
       }
     }, 3000)
+  })
+
+  test.serial('order > can not cancel bid when done', async t => {
+    const res = await order.cancel()
+    t.is(res, null)
   })
 
   test.serial('order > #ask(): high price', async t => {
