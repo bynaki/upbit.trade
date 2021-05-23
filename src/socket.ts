@@ -182,15 +182,18 @@ export class UPbitSocket extends BaseUPbitSocket {
     req.push({ticket: this._uuid})
     let codes = this.getCodes(I.ReqType.Trade)
     if(codes.length !== 0) {
-      req.push({type: I.ReqType.Trade, codes, isOnlyRealtime: true})
+      // req.push({type: I.ReqType.Trade, codes, isOnlyRealtime: true})
+      req.push({type: I.ReqType.Trade, codes})
     }
     codes = this.getCodes(I.ReqType.Orderbook)
     if(codes.length !== 0) {
-      req.push({type: I.ReqType.Orderbook, codes, isOnlyRealtime: true})
+      // req.push({type: I.ReqType.Orderbook, codes, isOnlyRealtime: true})
+      req.push({type: I.ReqType.Orderbook, codes})
     }
     codes = this.getCodes(I.ReqType.Ticker)
     if(codes.length !== 0) {
-      req.push({type: I.ReqType.Ticker, codes, isOnlyRealtime: true})
+      // req.push({type: I.ReqType.Ticker, codes, isOnlyRealtime: true})
+      req.push({type: I.ReqType.Ticker, codes})
     }
     return req
   }
