@@ -3,6 +3,9 @@ import {
   Logger,
   // FileWriter,
 } from 'fourdollar'
+import {
+  BaseUPbitSocket,
+} from './socket'
 
 
 
@@ -56,7 +59,7 @@ export abstract class BaseSocketBot extends Logger {
     return `${this.constructor.name}:${this.code}`
   }
 
-  abstract start(): Promise<void>
+  abstract start<S extends BaseUPbitSocket>(socket?: S): Promise<void>
   abstract finish(): Promise<void>
   abstract onTrade(data: I.TradeType): Promise<void>
   abstract onOrderbook(data: I.OrderbookType): Promise<void>

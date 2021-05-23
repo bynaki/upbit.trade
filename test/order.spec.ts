@@ -16,7 +16,7 @@ import { RequestError } from 'cryptocurrency.api'
  * 지정가 매수매도
  * -- 실제로 거래됨 주의 --
  */
-if(true) {
+if(false) {
   const config = getConfig('./config.json')
   const api = new UPbit(config.upbit_keys)
   const order = new Order(api)
@@ -148,7 +148,7 @@ if(true) {
 /**
  * 사장가 매수매도
  */
-if(true) {
+if(false) {
   const config = getConfig('./config.json')
   const api = new UPbit(config.upbit_keys)
   const order = new OrderMarket(api)

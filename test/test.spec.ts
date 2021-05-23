@@ -556,7 +556,7 @@ test('UPbitSocket > #requests()', t => {
         'KRW-ETH',
         'KRW-XRP',
       ],
-      isOnlyRealtime: true,
+      // isOnlyRealtime: true,
     },
     {
       type: 'orderbook',
@@ -565,7 +565,7 @@ test('UPbitSocket > #requests()', t => {
         'KRW-ETH',
         'KRW-XRP',
       ],
-      isOnlyRealtime: true,
+      // isOnlyRealtime: true,
     },
   ])
 })

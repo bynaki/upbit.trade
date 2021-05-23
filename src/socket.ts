@@ -107,7 +107,7 @@ class BotManager {
 type Constructor<T> = new (code: string) => T
 
 
-class BaseUPbitSocket extends Logger {
+export class BaseUPbitSocket extends Logger {
   private _codes: string[]
   private _botManager: BotManager
   private _isStarted = false
@@ -121,7 +121,7 @@ class BaseUPbitSocket extends Logger {
   protected async start(): Promise<boolean> {
     for(const bot of this.getBots()) {
       if(bot.start) {
-        await bot.start()
+        await bot.start(this)
       }
     }
     this._isStarted = true
