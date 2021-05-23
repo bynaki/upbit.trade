@@ -107,7 +107,7 @@ class BotManager {
 type Constructor<T> = new (code: string) => T
 
 
-export class BaseUPbitSocket extends Logger {
+export abstract class BaseUPbitSocket extends Logger {
   private _codes: string[]
   private _botManager: BotManager
   private _isStarted = false
@@ -163,6 +163,9 @@ export class BaseUPbitSocket extends Logger {
   protected getCodes(req: I.ReqType): string[] {
     return this._botManager.getCodes(req)
   }
+
+  abstract open(): Promise<void>
+  abstract close(): Promise<boolean>
 }
 
 
