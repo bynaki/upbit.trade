@@ -136,12 +136,16 @@ export interface Config {
   markets: string[]
 }
 
-export interface HistoryType<C> {
-  time_stamp: number,
-  time: string,
-  comment: C,
-  bid: Iu.OrderDetailType,
-  bid_error: unknown,
-  ask: Iu.OrderDetailType,
-  ask_error: unknown,
+
+export interface HistoryType {
+  bid: (Iu.OrderDetailType)[]
+  ask: (Iu.OrderDetailType)[]
+  errorBid: any[]
+  errorAsk: any[]
+}
+
+export interface HistoryFileType<C> extends HistoryType {
+  time_stamp: number
+  time: string
+  comment: C
 }

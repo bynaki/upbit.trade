@@ -1,6 +1,5 @@
 import {
   UPbit,
-  RequestError,
   upbit_types as Iu,
 } from 'cryptocurrency.api'
 import {
@@ -22,86 +21,76 @@ import {
   readFile,
 } from 'fs/promises'
 import * as I from './types'
+import {
+  stop,
+} from 'fourdollar'
+import {
+  isEqual,
+} from 'lodash'
 
-
-// export class BalanceError extends Error {
-//   constructor(message?: string) {
-//     super(message)
-//   }
-// }
-
-// export class OrderError extends Error {
-//   constructor(message?: string) {
-//     super(message)
-//   }
-// }
-
-
-// export interface IBaseOrder {
-//   status: Iu.OrderType
-//   updateStatus(): Promise<Iu.OrderDetailType>
-//   updateStatusBid(): Promise<Iu.OrderDetailType>
-//   updateStatusAsk(): Promise<Iu.OrderDetailType>
-//   cancel(): Promise<Iu.OrderType>
-// }
-
-// export interface IOrderMarket extends IBaseOrder {
-//   bid(params: {
-//     market: string
-//     price: number
-//   }, err?: (err) => void
-//   , cb?: (status: Iu.OrderDetailType) => void): Promise<Iu.OrderType>
-//   ask(err?: (err) => void
-//   , cb?: (status: Iu.OrderDetailType) => void): Promise<Iu.OrderType>
-// }
-
-// export interface IOrder extends IBaseOrder {
-//   bid(params: {
-//     market: string
-//     price: number
-//     volume: number
-//   }, err?: (err) => void
-//   , cb?: (status: Iu.OrderDetailType) => void): Promise<Iu.OrderType>
-//   ask(price: number
-//   , err?: (err) => void
-//   , cb?: (status: Iu.OrderDetailType) => void): Promise<Iu.OrderType>
-// }
 
 
 abstract class BaseOrder {
-  public static readonly minTotal = 5000
-
-  protected _statusBid: Iu.OrderType = null
-  protected _statusAsk: Iu.OrderType = null
-  protected _errorBid: any = null
-  protected _errorAsk: any = null
+  private _history: I.HistoryType
   protected _canceling = false
 
   constructor(protected readonly api: UPbit) {
+    this._history = {
+      bid: [],
+      ask: [],
+      errorBid: [],
+      errorAsk: [],
+    }
   }
 
-  get status(): Iu.OrderType {
-    return this._statusAsk || this._statusBid
+  get status(): Iu.OrderDetailType {
+    return this.statusAsk || this.statusBid
   }
 
-  get statusBid(): Iu.OrderType {
-    return this._statusBid
+  get statusBid(): Iu.OrderDetailType {
+    return this._history.bid[this._history.bid.length - 1]
   }
 
-  get statusAsk(): Iu.OrderType {
-    return this._statusAsk
+  get statusAsk(): Iu.OrderDetailType {
+    return this._history.ask[this._history.ask.length - 1]
   }
 
   get error(): any {
-    return this._errorAsk || this._errorBid
+    return this.errorAsk || this.errorBid
   }
 
   get errorBid(): any {
-    return this._errorBid
+    return this._history.errorBid[this._history.errorBid.length -1]
   }
 
   get errorAsk(): any {
-    return this._errorAsk
+    return this._history.errorAsk[this._history.errorAsk.length - 1]
+  }
+
+  get history(): I.HistoryType {
+    return this._history
+  }
+
+  protected _updateHistory(status: Iu.OrderType | Iu.OrderDetailType) {
+    const s = status as Iu.OrderDetailType
+    if(!s.trades) {
+      Object.assign(s, {trades: []})
+    }
+    if(s.side === 'bid') {
+      if(!this.statusBid) {
+        this._history.bid.push(s)
+      }
+      if(!isEqual(this.statusBid, s)) {
+        this._history.bid.push(s)
+      }
+    } else if(s.side === 'ask') {
+      if(!this.statusAsk) {
+        this._history.ask.push(s)
+      }
+      if(!isEqual(this.statusAsk, s)) {
+        this._history.ask.push(s)
+      }
+    }
   }
 
   async updateStatus(): Promise<Iu.OrderDetailType> {
@@ -109,43 +98,76 @@ abstract class BaseOrder {
   }
 
   async updateStatusBid(): Promise<Iu.OrderDetailType> {
-    if(!this._statusBid) {
+    if(!this.statusBid) {
       return null
     }
-    this._statusBid = (await this.api.getOrderDetail({uuid: this._statusBid.uuid})).data
-    return this._statusBid as Iu.OrderDetailType
+    this._updateHistory((await this.api.getOrderDetail({uuid: this.statusBid.uuid})).data)
+    return this.statusBid as Iu.OrderDetailType
   }
 
   async updateStatusAsk(): Promise<Iu.OrderDetailType> {
-    if(!this._statusAsk) {
+    if(!this.statusAsk) {
       return null
     }
-    this._statusAsk = (await this.api.getOrderDetail({uuid: this._statusAsk.uuid})).data
-    return this._statusAsk as Iu.OrderDetailType
+    this._updateHistory((await this.api.getOrderDetail({uuid: this.statusAsk.uuid})).data)
+    return this.statusAsk as Iu.OrderDetailType
+  }
+
+  async wait(ms: number, timeout: number) {
+    const s1 = this.status
+    for(let i = 0; i < timeout; i++) {
+      await stop(ms)
+      const s2 = await this.updateStatus()
+      if(s2.state !== s1.state) {
+        break
+      }
+    }
+    return this.status
   }
 
   async cancel(): Promise<Iu.OrderType> {
-    if(this._canceling === true) {
-      return this.status
-    }
     if(!this.status) {
       return null
+    }
+    if(this._canceling === true) {
+      return this.status
     }
     this._canceling = true
     try {
       const res = (await this.api.cancel({
         uuid: this.status.uuid
       })).data
-      if(this.status.side === 'bid') {
-        this._statusBid = res
-      } else {
-        this._statusAsk = res
-      }
+      this._updateHistory(res)
       return res
     } catch(e) {
       return null
     }
   }
+
+  async cancelWaiting(ms: number = 300, timeout: number = 20): Promise<Iu.OrderType> {
+    if(!this.status) {
+      return null
+    }
+    if(this._canceling === true) {
+      if(this.status.state === 'cancel') {
+        return this.status
+      }
+      if(this.status.state === 'wait') {
+        return this.wait(ms, timeout)
+      }
+    }
+    this._canceling = true
+    try {
+      const res = (await this.api.cancel({
+        uuid: this.status.uuid
+      })).data
+      this._updateHistory(res)
+      return this.wait(ms, timeout)
+    } catch(e) {
+      return null
+    }
+  }
+
 
   protected async suitedBidVol(market: string, volume: number): Promise<number> {
     const chance = (await this.api.getOrdersChance({market})).data
@@ -191,9 +213,9 @@ abstract class BaseOrder {
 
   protected processError(side: 'bid'|'ask', err: any, errCb: (err) => void) {
     if(side === 'bid') {
-      this._errorBid = err
+      this._history.errorBid.push(err)
     } else {
-      this._errorAsk = err
+      this._history.errorAsk.push(err)
     }
     if(errCb) {
       errCb(err)
@@ -237,9 +259,9 @@ export class Order extends BaseOrder {
           price,
           volume: ceil(volume / price, 8),
         }
-        this._statusBid = (await this.api.order(orderParams)).data
+        this._updateHistory((await this.api.order(orderParams)).data)
         this._canceling = false
-        return this._statusBid
+        return this.statusBid
       } catch(e) {
         return this.processError('bid', e, err)
       }
@@ -268,11 +290,11 @@ export class Order extends BaseOrder {
           price: price,
           volume,
         }
-        this._statusAsk = (await this.api.order(orderParams)).data
+        this._updateHistory((await this.api.order(orderParams)).data)
         this._canceling = false
-        return this._statusAsk
+        return this.statusAsk
       } catch(e) {
-        return this.processError('bid', e, err)
+        return this.processError('ask', e, err)
       }
     } else {
       return status
@@ -318,7 +340,7 @@ export class OrderMarket extends BaseOrder {
         ord_type: 'price',
         price,
       }
-      this._statusBid = (await this.api.order(orderParams)).data
+      this._updateHistory((await this.api.order(orderParams)).data)
       if(cb) {
         let count = 0
         const id = setInterval(async () => {
@@ -334,7 +356,7 @@ export class OrderMarket extends BaseOrder {
         }, 1000)
       }
       this._canceling = false
-      return this._statusBid
+      return this.statusBid
     } catch(e) {
       return this.processError('bid', e, err)
     }
@@ -360,7 +382,7 @@ export class OrderMarket extends BaseOrder {
           ord_type: 'market',
           volume,
         }
-        this._statusAsk = (await this.api.order(params)).data
+        this._updateHistory((await this.api.order(params)).data)
         if(cb) {
           let count = 0
           const id = setInterval(async () => {
@@ -376,7 +398,7 @@ export class OrderMarket extends BaseOrder {
           }, 1000)
         }
         this._canceling = false
-        return this._statusAsk
+        return this.statusAsk
       } catch(e) {
         return this.processError('bid', e, err)
       }
@@ -399,17 +421,13 @@ export class OrderHistory<C> {
     })
   }
 
-  append(order: BaseOrder, comment?: C): Promise<I.HistoryType<C>>  {
+  append(history: I.HistoryType, comment?: C): Promise<I.HistoryFileType<C>>  {
     const t = new Date()
-    const contents = {
+    const contents = Object.assign(Object.assign({}, history), {
       time_stamp: t.getTime(),
       time: format(t, 'isoDateTime'),
       comment,
-      bid: order.statusBid as Iu.OrderDetailType,
-      bid_error: order.errorBid,
-      ask: order.statusAsk as Iu.OrderDetailType,
-      ask_error: order.errorAsk,
-    }
+    }) as I.HistoryFileType<C>
     const stringify = '\n\n' + JSON.stringify(contents, null, 2)
     return new Promise((resolve, reject) => {
       this._stream.write(stringify, err => {
@@ -422,7 +440,7 @@ export class OrderHistory<C> {
     })
   }
 
-  async read(): Promise<I.HistoryType<C>[]> {
+  async read(): Promise<I.HistoryFileType<C>[]> {
     const stringify = (await readFile(this.path)).toString()
     const splited = stringify.split('\n\n')
     splited.splice(0, 1)
