@@ -33,6 +33,7 @@ import {
 abstract class BaseOrder {
   private _history: I.HistoryType
   protected _canceling = false
+  protected _isTerminated = false
 
   constructor(protected readonly api: UPbit) {
     this._history = {
@@ -71,26 +72,8 @@ abstract class BaseOrder {
     return this._history
   }
 
-  protected _updateHistory(status: Iu.OrderType | Iu.OrderDetailType) {
-    const s = status as Iu.OrderDetailType
-    if(!s.trades) {
-      Object.assign(s, {trades: []})
-    }
-    if(s.side === 'bid') {
-      if(!this.statusBid) {
-        this._history.bid.push(s)
-      }
-      if(!isEqual(this.statusBid, s)) {
-        this._history.bid.push(s)
-      }
-    } else if(s.side === 'ask') {
-      if(!this.statusAsk) {
-        this._history.ask.push(s)
-      }
-      if(!isEqual(this.statusAsk, s)) {
-        this._history.ask.push(s)
-      }
-    }
+  get isTerminated(): boolean {
+    return this._isTerminated
   }
 
   async updateStatus(): Promise<Iu.OrderDetailType> {
@@ -101,7 +84,7 @@ abstract class BaseOrder {
     if(!this.statusBid) {
       return null
     }
-    this._updateHistory((await this.api.getOrderDetail({uuid: this.statusBid.uuid})).data)
+    this.updateHistory((await this.api.getOrderDetail({uuid: this.statusBid.uuid})).data)
     return this.statusBid as Iu.OrderDetailType
   }
 
@@ -109,7 +92,7 @@ abstract class BaseOrder {
     if(!this.statusAsk) {
       return null
     }
-    this._updateHistory((await this.api.getOrderDetail({uuid: this.statusAsk.uuid})).data)
+    this.updateHistory((await this.api.getOrderDetail({uuid: this.statusAsk.uuid})).data)
     return this.statusAsk as Iu.OrderDetailType
   }
 
@@ -137,7 +120,7 @@ abstract class BaseOrder {
       const res = (await this.api.cancel({
         uuid: this.status.uuid
       })).data
-      this._updateHistory(res)
+      this.updateHistory(res)
       return res
     } catch(e) {
       return this.processError(this.status.side, e, () => {})
@@ -161,11 +144,15 @@ abstract class BaseOrder {
       const res = (await this.api.cancel({
         uuid: this.status.uuid
       })).data
-      this._updateHistory(res)
+      this.updateHistory(res)
       return this.wait(ms, timeout)
     } catch(e) {
       return null
     }
+  }
+
+  terminate() {
+    this._isTerminated = true
   }
 
   protected async suitedBidVol(market: string, volume: number): Promise<number> {
@@ -213,6 +200,28 @@ abstract class BaseOrder {
     return json
   }
 
+  protected updateHistory(status: Iu.OrderType | Iu.OrderDetailType) {
+    const s = status as Iu.OrderDetailType
+    if(!s.trades) {
+      Object.assign(s, {trades: []})
+    }
+    if(s.side === 'bid') {
+      if(!this.statusBid) {
+        this._history.bid.push(s)
+      }
+      if(!isEqual(this.statusBid, s)) {
+        this._history.bid.push(s)
+      }
+    } else if(s.side === 'ask') {
+      if(!this.statusAsk) {
+        this._history.ask.push(s)
+      }
+      if(!isEqual(this.statusAsk, s)) {
+        this._history.ask.push(s)
+      }
+    }
+  }
+
   abstract bid(...args: any[]): Promise<Iu.OrderType>
   abstract ask(...args: any[]): Promise<Iu.OrderType>
 }
@@ -247,7 +256,7 @@ export class Order extends BaseOrder {
           price,
           volume: ceil(volume / price, 8),
         }
-        this._updateHistory((await this.api.order(orderParams)).data)
+        this.updateHistory((await this.api.order(orderParams)).data)
         this._canceling = false
         return this.statusBid
       } catch(e) {
@@ -278,7 +287,7 @@ export class Order extends BaseOrder {
           price: price,
           volume,
         }
-        this._updateHistory((await this.api.order(orderParams)).data)
+        this.updateHistory((await this.api.order(orderParams)).data)
         this._canceling = false
         return this.statusAsk
       } catch(e) {
@@ -328,7 +337,7 @@ export class OrderMarket extends BaseOrder {
         ord_type: 'price',
         price,
       }
-      this._updateHistory((await this.api.order(orderParams)).data)
+      this.updateHistory((await this.api.order(orderParams)).data)
       if(cb) {
         let count = 0
         const id = setInterval(async () => {
@@ -370,7 +379,7 @@ export class OrderMarket extends BaseOrder {
           ord_type: 'market',
           volume,
         }
-        this._updateHistory((await this.api.order(params)).data)
+        this.updateHistory((await this.api.order(params)).data)
         if(cb) {
           let count = 0
           const id = setInterval(async () => {
