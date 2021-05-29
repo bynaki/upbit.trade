@@ -88,6 +88,7 @@ if(true) {
   test.serial('order > can not cancel bid when done', async t => {
     const res = await order.cancel()
     t.is(res, null)
+    console.log(order.errorCancel)
   })
 
   test.serial('order > #ask(): high price', async t => {
@@ -143,6 +144,12 @@ if(true) {
     t.is(status.state, 'done')
   })
 
+  test.serial('order > can not cancel ask when done', async t => {
+    const res = await order.cancel()
+    t.is(res, null)
+    console.log(order.errorCancel)
+  })
+
   test.serial('order > history', async t => {
     const h = order.history
     console.log(h)
@@ -182,6 +189,9 @@ if(true) {
     t.is(ask[4].uuid, ask[5].uuid)
     t.is(h.errorBid.length, 0)
     t.is(h.errorAsk.length, 0)
+    t.is(h.errorCancel.length, 2)
+    console.log(h.errorCancel[0])
+    console.log(h.errorCancel[1])
   })
 
   test.serial('order > history file', async t => {
@@ -227,6 +237,9 @@ if(true) {
     t.is(hh.errorBid.length, 0)
     t.is(hh.errorAsk.length, 0)
     t.is(hh.comment.name, 'test')
+    t.is(h.errorCancel.length, 2)
+    console.log(h.errorCancel[0])
+    console.log(h.errorCancel[1])
   })
 }
 

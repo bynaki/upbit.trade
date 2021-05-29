@@ -40,6 +40,7 @@ abstract class BaseOrder {
       ask: [],
       errorBid: [],
       errorAsk: [],
+      errorCancel: [],
     }
   }
 
@@ -65,6 +66,10 @@ abstract class BaseOrder {
 
   get errorAsk(): any {
     return this._history.errorAsk[this._history.errorAsk.length - 1]
+  }
+  
+  get errorCancel(): any {
+    return this._history.errorCancel[this._history.errorCancel.length - 1]
   }
 
   get history(): I.HistoryType {
@@ -140,6 +145,7 @@ abstract class BaseOrder {
       this._updateHistory(res)
       return res
     } catch(e) {
+      this._history.errorCancel.push(this.jsonError(e))
       return null
     }
   }
@@ -213,9 +219,9 @@ abstract class BaseOrder {
 
   protected processError(side: 'bid'|'ask', err: any, errCb: (err) => void) {
     if(side === 'bid') {
-      this._history.errorBid.push(err)
+      this._history.errorBid.push(this.jsonError(err))
     } else {
-      this._history.errorAsk.push(err)
+      this._history.errorAsk.push(this.jsonError(err))
     }
     if(errCb) {
       errCb(err)
@@ -223,6 +229,18 @@ abstract class BaseOrder {
       throw err
     }
     return null
+  }
+  
+  protected jsonError(err: any) {
+    const stringify = JSON.stringify(err)
+    const json = JSON.parse(stringify)
+    if(err.name) {
+      json.name = err.name
+    }
+    if(err.message) {
+      json.message = err.message
+    }
+    return json
   }
 
   abstract bid(...args: any[]): Promise<Iu.OrderType>
