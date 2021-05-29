@@ -40,7 +40,6 @@ abstract class BaseOrder {
       ask: [],
       errorBid: [],
       errorAsk: [],
-      errorCancel: [],
     }
   }
 
@@ -68,10 +67,6 @@ abstract class BaseOrder {
     return this._history.errorAsk[this._history.errorAsk.length - 1]
   }
   
-  get errorCancel(): any {
-    return this._history.errorCancel[this._history.errorCancel.length - 1]
-  }
-
   get history(): I.HistoryType {
     return this._history
   }
@@ -145,8 +140,7 @@ abstract class BaseOrder {
       this._updateHistory(res)
       return res
     } catch(e) {
-      this._history.errorCancel.push(this.jsonError(e))
-      return null
+      return this.processError(this.status.side, e, () => {})
     }
   }
 
@@ -174,7 +168,6 @@ abstract class BaseOrder {
     }
   }
 
-
   protected async suitedBidVol(market: string, volume: number): Promise<number> {
     const chance = (await this.api.getOrdersChance({market})).data
     const min = chance.market.bid.min_total
@@ -193,29 +186,6 @@ abstract class BaseOrder {
     }
     return suit
   }
-
-  // protected processError(side: 'bid'|'ask', err: any, errCb: (err) => void) {
-  //   if(side === 'bid') {
-  //     this._errorBid = err
-  //   } else {
-  //     this._errorAsk = err
-  //   }
-  //   if(err instanceof RequestError) {
-  //     // 잔고 부족, 최소주문금액
-  //     if(err.code === 'insufficient_funds_bid'
-  //     || err.code === 'under_min_total_bid'
-  //     || err.code === 'insufficient_funds_ask'
-  //     || err.code === 'under_min_total_ask') {
-  //       return null
-  //     }
-  //   }
-  //   if(errCb) {
-  //     errCb(err)
-  //   } else {
-  //     throw err
-  //   }
-  //   return null
-  // }
 
   protected processError(side: 'bid'|'ask', err: any, errCb: (err) => void) {
     if(side === 'bid') {

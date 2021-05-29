@@ -142,7 +142,6 @@ export interface HistoryType {
   ask: (Iu.OrderDetailType)[]
   errorBid: any[]
   errorAsk: any[]
-  errorCancel: any[]
 }
 
 export interface HistoryFileType<C> extends HistoryType {
