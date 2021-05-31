@@ -49,10 +49,16 @@ abstract class BaseOrder {
   }
 
   get statusBid(): Iu.OrderDetailType {
+    if(this._history.bid.length === 0) {
+      return null
+    }
     return this._history.bid[this._history.bid.length - 1]
   }
 
   get statusAsk(): Iu.OrderDetailType {
+    if(this._history.ask.length === 0) {
+      return null
+    }
     return this._history.ask[this._history.ask.length - 1]
   }
 
@@ -61,10 +67,16 @@ abstract class BaseOrder {
   }
 
   get errorBid(): any {
+    if(this._history.errorBid.length === 0) {
+      return null
+    }
     return this._history.errorBid[this._history.errorBid.length -1]
   }
 
   get errorAsk(): any {
+    if(this._history.errorAsk.length === 0) {
+      return null
+    }
     return this._history.errorAsk[this._history.errorAsk.length - 1]
   }
   
