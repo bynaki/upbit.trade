@@ -11,13 +11,22 @@ import {
 
 export abstract class BaseSocketBot extends Logger {
   protected _queue: {
-    'trade': I.ResType[]
-    'orderbook': I.ResType[]
-    'ticker': I.ResType[]
+    trade: I.ResType[]
+    orderbook: I.ResType[]
+    ticker: I.ResType[]
   } = {
-    'trade': [],
-    'orderbook': [],
-    'ticker': [],
+    trade: [],
+    orderbook: [],
+    ticker: [],
+  }
+  protected _done: {
+    trade: I.ResType
+    orderbook: I.ResType
+    ticker: I.ResType
+  } = {
+    trade: null,
+    orderbook: null,
+    ticker: null,
   }
 
   constructor(public readonly code: string) {
@@ -25,31 +34,32 @@ export abstract class BaseSocketBot extends Logger {
   }
 
   async trigger<T extends I.ResType>(data: T) {
-    if(this._queue[data.type].length === 0) {
-      this._queue[data.type].push(data)
-      let d: I.ResType
+    this._queue[data.type].push(data)
+    if(this._queue[data.type].length === 1) {
       while(this._queue[data.type].length !== 0) {
-        //console.log(this._queue[data.type].length)
-        d = this._queue[data.type][0]
-        await this._trigger(d)
-        this._queue[data.type].shift()
+        this._done[data.type] = this._queue[data.type][0]
+        const release = await this._trigger(this._done[data.type])
+        if(release) {
+          this._done[data.type] = this._queue[data.type].pop()
+          this._queue[data.type] = []
+        } else {
+          this._done[data.type] = this._queue[data.type].shift()
+        }
       }
-    } else {
-      this._queue[data.type].push(data)
     }
   }
 
   private async _trigger<T extends I.ResType>(data: T) {
     switch(data.type) {
       case I.ReqType.Trade:
-        await this.onTrade(data as any)
-        break
+        this._done.trade = data
+        return this.onTrade(data as any)
       case I.ReqType.Orderbook:
-        await this.onOrderbook(data as any)
-        break
+        this._done.orderbook = data
+        return this.onOrderbook(data as any)
       case I.ReqType.Ticker:
-        await this.onTicker(data as any)
-        break
+        this._done.ticker = data
+        return this.onTicker(data as any)
       default:
         throw new Error(`'${data.type}' is unknown type.`)
     }
@@ -59,11 +69,22 @@ export abstract class BaseSocketBot extends Logger {
     return `${this.constructor.name}:${this.code}`
   }
 
+  latest(type: I.ReqType.Trade): I.TradeType
+  latest(type: I.ReqType.Orderbook): I.OrderbookType
+  latest(type: I.ReqType.Ticker): I.TickerType
+  latest(type: I.ReqType): any {
+    if(this._queue[type].length !== 0) {
+      return this._queue[type][this._queue[type].length - 1]
+    } else {
+      return this._done[type]
+    }
+  }
+
   abstract start<S extends BaseUPbitSocket>(socket?: S): Promise<void>
   abstract finish(): Promise<void>
-  abstract onTrade(data: I.TradeType): Promise<void>
-  abstract onOrderbook(data: I.OrderbookType): Promise<void>
-  abstract onTicker(data: I.TickerType): Promise<void>
+  abstract onTrade(data: I.TradeType): Promise<boolean|void>
+  abstract onOrderbook(data: I.OrderbookType): Promise<boolean|void>
+  abstract onTicker(data: I.TickerType): Promise<boolean|void>
 }
 
 

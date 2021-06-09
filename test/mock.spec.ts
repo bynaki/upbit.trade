@@ -66,6 +66,7 @@ class TestBot extends BaseSocketBot {
     }
     this.t.true(tr.sequential_id > this.pre.sequential_id)
     this.pre = tr
+    return false
   }
 
   onOrderbook = null

@@ -57,9 +57,11 @@ class TestBot3 extends BaseSocketBot {
   }
 
   async onTrade(data: I.TradeType) {
+    return false
   }
 
   async onOrderbook(data: I.OrderbookType) {
+    return false
   }
 
   start = null
@@ -116,6 +118,7 @@ class TestTradeBot extends BaseSocketBot {
       }, null)
       this._t.end()
     }
+    return false
   }
 
   finish = null
@@ -170,6 +173,7 @@ class TestOrderbookBot extends BaseSocketBot {
       }, null)
       this._t.end()
     }
+    return false
   }
 
   finish = null
@@ -228,6 +232,7 @@ class TestTickerBot extends BaseSocketBot {
       }, null)
       this._t.end()
     }
+    return false
   }
 
   finish = null
@@ -269,6 +274,7 @@ class TestQueueBot extends BaseSocketBot {
       }, null)
       this._t.end()
     }
+    return false
   }
 
   finish = null
@@ -301,6 +307,7 @@ class TestLogBot extends BaseSocketBot {
     this._t.regex(contents.toString(), reg)
     TestLogBot.writer = this._origin
     this._t.end()
+    return false
   }
 
   onOrderbook = null

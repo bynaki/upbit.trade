@@ -249,8 +249,10 @@ export class UPbitSocket extends BaseUPbitSocket {
       const ws = this._ws
       this._ws = null
       ws.terminate()
+      return this.finish()
+    } else {
+      return false
     }
-    return this.finish()
   }
 
   get uuid(): string {
