@@ -225,7 +225,6 @@ export class UPbitSocket extends BaseUPbitSocket {
         }
       })
       ws.on('pong', data => {
-        this.log('alive')
       })
       ws.once('open', () => {
         ws.send(JSON.stringify(req))
