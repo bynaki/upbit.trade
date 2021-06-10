@@ -34,8 +34,8 @@ export abstract class BaseSocketBot extends Logger {
   }
 
   async trigger<T extends I.ResType>(data: T) {
-    this._queue[data.type].push(data)
-    if(this._queue[data.type].length === 1) {
+    if(this._queue[data.type].length === 0) {
+      this._queue[data.type].push(data)
       while(this._queue[data.type].length !== 0) {
         this._done[data.type] = this._queue[data.type][0]
         const release = await this._trigger(this._done[data.type])
@@ -46,6 +46,8 @@ export abstract class BaseSocketBot extends Logger {
           this._done[data.type] = this._queue[data.type].shift()
         }
       }
+    } else {
+      this._queue[data.type].push(data)
     }
   }
 
