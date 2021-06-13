@@ -108,14 +108,29 @@ abstract class BaseOrder {
     return this.statusAsk as Iu.OrderDetailType
   }
 
-  async wait(ms: number, timeout: number) {
+  async wait(args: {
+    ms: number
+    timeout: number
+  } = {
+    ms: 300,
+    timeout: 20,
+  }, cb?: (status: Iu.OrderDetailType) => void) {
+    if(args === null) {
+      args = {
+        ms: 300,
+        timeout: 20,
+      }
+    }
     const s1 = this.status
-    for(let i = 0; i < timeout; i++) {
-      await stop(ms)
+    for(let i = 0; i < args.timeout; i++) {
+      await stop(args.ms)
       const s2 = await this.updateStatus()
       if(s2.state !== s1.state) {
         break
       }
+    }
+    if(cb) {
+      cb(this.status)
     }
     return this.status
   }
@@ -148,7 +163,7 @@ abstract class BaseOrder {
         return this.status
       }
       if(this.status.state === 'wait') {
-        return this.wait(ms, timeout)
+        return this.wait({ms, timeout})
       }
     }
     this._canceling = true
@@ -157,7 +172,7 @@ abstract class BaseOrder {
         uuid: this.status.uuid
       })).data
       this.updateHistory(res)
-      return this.wait(ms, timeout)
+      return this.wait({ms, timeout})
     } catch(e) {
       return null
     }
@@ -327,54 +342,29 @@ export class OrderMarket extends BaseOrder {
   async bid(params: {
     market: string
     price: number
-  }, err?: (err) => void
-  , cb?: (status: Iu.OrderDetailType) => void): Promise<Iu.OrderType> {
+  }, err?: (err) => void): Promise<Iu.OrderType> {
     const status = await this.updateStatus()
-    if(status && status.side === 'bid') {
-      if(status.state === 'wait' || status.state === 'done') {
-        return status
+    if(!status || (status.side === 'bid' && status.state === 'cancel')) {
+      try {
+        const price = await this.suitedBidVol(params.market, params.price)
+        const orderParams: Iu.OrderPriceParam = {
+          market: params.market,
+          side: 'bid',
+          ord_type: 'price',
+          price,
+        }
+        this.updateHistory((await this.api.order(orderParams)).data)
+        this._canceling = false
+        return this.statusBid
+      } catch(e) {
+        return this.processError('bid', e, err)
       }
-      if(status.ord_type === 'price' && status.state === 'cancel') {
-        return status
-      }
-    }
-    if(status && status.side === 'ask' && status.state === 'wait') {
-      return this.cancel()
-    }
-    try {
-      const price = await this.suitedBidVol(params.market, params.price)
-      const orderParams: Iu.OrderPriceParam = {
-        market: params.market,
-        side: 'bid',
-        ord_type: 'price',
-        price,
-      }
-      this.updateHistory((await this.api.order(orderParams)).data)
-      if(cb) {
-        let count = 0
-        const id = setInterval(async () => {
-          if(count++ >= 5) {
-            clearInterval(id)
-            return
-          }
-          const status = await this.updateStatusBid()
-          if(status.state !== 'wait') {
-            cb(status)
-            clearInterval(id)
-          }
-        }, 1000)
-      }
-      this._canceling = false
-      return this.statusBid
-    } catch(e) {
-      return this.processError('bid', e, err)
+    } else {
+      return status
     }
   }
 
-  async ask(
-    err?: (err) => void
-    , cb?: (status: Iu.OrderDetailType) => void
-  ): Promise<Iu.OrderType> {
+  async ask(err?: (err) => void): Promise<Iu.OrderType> {
     const status = await this.updateStatus()
     if(!status) {
       return null
@@ -383,8 +373,8 @@ export class OrderMarket extends BaseOrder {
     || (status.side === 'bid' && status.ord_type === 'price' && status.state === 'cancel')
     || (status.side === 'ask' && status.state === 'cancel')) {
       try {
-        const price = (await this.api.getOrderbook({markets: ['KRW-BTC']})).data[0].orderbook_units[0].bid_price
-        const volume = await this.suitedAskVol(status.market, price, status.executed_volume)
+        const price = (await this.api.getOrderbook({markets: [status.market]})).data[0].orderbook_units[0].bid_price
+        const volume = await this.suitedAskVol(status.market, price, this.statusBid.executed_volume)
         const params: Iu.OrderMarketParam = {
           market: status.market,
           side: 'ask',
@@ -392,24 +382,10 @@ export class OrderMarket extends BaseOrder {
           volume,
         }
         this.updateHistory((await this.api.order(params)).data)
-        if(cb) {
-          let count = 0
-          const id = setInterval(async () => {
-            if(count++ >= 5) {
-              clearInterval(id)
-              return
-            }
-            const status = await this.updateStatusAsk()
-            if(status.state !== 'wait') {
-              cb(status)
-              clearInterval(id)
-            }
-          }, 1000)
-        }
         this._canceling = false
         return this.statusAsk
       } catch(e) {
-        return this.processError('bid', e, err)
+        return this.processError('ask', e, err)
       }
     } else {
       return status

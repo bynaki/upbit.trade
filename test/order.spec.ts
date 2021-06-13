@@ -12,12 +12,13 @@ import {
 } from 'fourdollar'
 import { RequestError } from 'cryptocurrency.api'
 import { times } from 'lodash'
+import { stat } from 'fs-extra'
 
 /**
  * 지정가 매수매도
  * -- 실제로 거래됨 주의 --
  */
-if(true) {
+if(false) {
   const config = getConfig('./config.json')
   const api = new UPbit(config.upbit_keys)
   const order = new Order(api)
@@ -45,7 +46,7 @@ if(true) {
 
   test.serial('order > wait cancel bid', async t => {
     t.timeout(6000)
-    const status = await order.wait(300, 20)
+    const status = await order.wait()
     t.is(status.side, 'bid')
     t.is(status.state, 'cancel')
   })
@@ -80,7 +81,7 @@ if(true) {
 
   test.serial('order > wait done bid', async t => {
     t.timeout(120 * 1000)
-    const status  = await order.wait(1000, 20)
+    const status  = await order.wait({ms: 1000, timeout: 20})
     t.is(status.side, 'bid')
     t.is(status.state, 'done')
   })
@@ -110,7 +111,7 @@ if(true) {
 
   test.serial('order > wait cancel ask', async t => {
     t.timeout(6000)
-    const status = await order.wait(300, 20)
+    const status = await order.wait()
     t.is(status.side, 'ask')
     t.is(status.state, 'cancel')
 
@@ -139,7 +140,7 @@ if(true) {
 
   test.serial('order > wait done ask', async t => {
     t.timeout(120 * 1000)
-    const status  = await order.wait(1000, 20)
+    const status  = await order.wait({ms: 1000, timeout: 20})
     t.is(status.side, 'ask')
     t.is(status.state, 'done')
   })
@@ -244,6 +245,7 @@ if(true) {
 
 /**
  * 사장가 매수매도
+ * -- 실제로 거래됨 주의 --
  */
 if(false) {
   const config = getConfig('./config.json')
@@ -255,8 +257,9 @@ if(false) {
   test.serial('order market > #bid()', async t => {
     const res = await order.bid({
       market: 'KRW-BTC',
-      price: 5000,
-    }, null, status => statusBid = status)
+      price: 10000,
+    })
+    order.wait(null, status => statusBid = status)
     console.log(res)
     t.is(res.state, 'wait')
   })
@@ -283,16 +286,16 @@ if(false) {
   })
 
   test.serial('order market > #ask()', async t => {
-    const res = await order.ask(null, status => statusAsk = status)
+    const res = await order.ask()
+    order.wait(null, status => statusAsk = status)
     console.log(res)
     t.is(res.state, 'wait')
   })
 
   // 시장가 거래는 cancel 안됨 주의.
   test.serial('order market > #cancel(): can not cancel ask', async t => {
-    const res = await order.cancel()
-    console.log(res)
-    t.is(res.state, 'wait')
+    const res = await order.cancelWaiting()
+    t.is(res, null)
   })
 
   test.serial.cb('order market > wait done ask', t => {
