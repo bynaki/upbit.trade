@@ -1,41 +1,33 @@
 import test from 'ava'
 import {
   UPbit,
+  upbit_types as Iu,
 } from 'cryptocurrency.api'
-import { getConfig } from '../src'
+import {
+  getConfig,
+} from '../src/utils'
 
 
-if(false) {
-  const cf = getConfig()
-  const api = new UPbit(cf.upbit_keys)
-  let uuid
-  
-  test.serial('cancel', async t => {
-    const ask = await api.order({
+
+if(true) {
+  const api = new UPbit(getConfig('./config.json').upbit_keys)
+  test('hello', async t => {
+    const res = await api.getTradesTicks({
       market: 'KRW-BTC',
-      ord_type: 'market',
-      side: 'ask',
-      volume: 0.00018995,
+      daysAgo: 6,
+      to: '00:02:00', // 포함안됨
+      count: 1000,
     })
-    console.log('ask:')
-    console.log(ask.data)
-    uuid = ask.data.uuid
-    const cancel = await api.cancel({uuid: ask.data.uuid})
-    console.log('cancel:')
-    console.log(cancel.data)
+    console.log(res.data)
+    console.log(res.data.length)
+    const res2 = await api.getTradesTicks({
+      market: 'KRW-BTC',
+      daysAgo: 6,
+      count: 10,
+      cursor: res.data[res.data.length - 1].sequential_id,
+    })
+    console.log(res2.data)
+    console.log(res2.data.length)
     t.pass()
-  })
-  
-  test.serial.cb('confirm', t => {
-    t.timeout(10000)
-    const id = setInterval(async () => {
-      const res = await api.getOrderDetail({uuid})
-      if(res.data.state === 'done' || res.data.state === 'cancel') {
-        console.log('res:')
-        console.log(res.data)
-        t.pass()
-        clearInterval(id)
-      }
-    }, 1000)
   })
 }

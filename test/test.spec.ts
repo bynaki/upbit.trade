@@ -7,7 +7,7 @@ import {
   BaseSocketBot,
   types as I,
 } from '../src'
-import $4, { toStringQuery } from 'fourdollar'
+import $4 from 'fourdollar'
 import {
   join,
 } from 'path'
@@ -259,8 +259,8 @@ class TestQueueBot extends BaseSocketBot {
   async onTrade(data: I.TradeType) {
     const ms = this._count-- * 2000
     this._datas.push(data)
-    this.log(`count: ${this._count}`, data)
     await $4.stop(ms)
+    this.log(`count: ${this._count}`, data)
     if(ms === 0) {
       const t = this._t
       //console.log(`data.length: ${this._datas.length}`)
@@ -282,6 +282,37 @@ class TestQueueBot extends BaseSocketBot {
   onTicker = null
 }
 
+
+class TestLatestBot extends BaseSocketBot {
+  private _t: CbExecutionContext
+
+  constructor(code: string, t: CbExecutionContext) {
+    super(code)
+    this._t = t
+    t.plan(4)
+  }
+
+  async start() {
+    this._t.pass()
+  }
+
+  async onTrade(res: I.TradeType) {
+    this._t.true(this.latest(I.ReqType.Trade) !== null)
+    this._t.true(this.latest(I.ReqType.Orderbook) !== null)
+    this._t.true(this.latest(I.ReqType.Ticker) === null)
+    this._t.end()
+  }
+
+  async onOrderbook(res: I.OrderbookType) {
+    this._t.true(this.latest(I.ReqType.Trade) !== null)
+    this._t.true(this.latest(I.ReqType.Orderbook) !== null)
+    this._t.true(this.latest(I.ReqType.Ticker) === null)
+    this._t.end()
+  }
+  
+  finish = null
+  onTicker = null
+}
 
 class TestLogBot extends BaseSocketBot {
   private _t: CbExecutionContext
@@ -638,6 +669,13 @@ test.serial.cb('TestQueueBot', t => {
   t.timeout(20000)
   const us = new UPbitSocket(['KRW-BTC'])
   us.addBot(new TestQueueBot('KRW-BTC', t))
+  us.open()
+})
+
+test.serial.cb('TestLatestBot', t => {
+  t.timeout(20000)
+  const us = new UPbitSocket(['KRW-BTC'])
+  us.addBot(new TestLatestBot('KRW-BTC', t))
   us.open()
 })
 

@@ -65,3 +65,97 @@ export async function allMarketCode(
       return true
     }).map(m => m.market)
 }
+
+
+
+
+export class OHLCMaker {
+  private vector: I.OHLCType[] = []
+  private preTime: number = 0
+
+  constructor(public readonly limit: number) {}
+
+  push(tr: I.TradeType) {
+    const tt = Math.floor(tr.trade_timestamp / (1000 * 60)) * (1000 * 60)
+    if(this.preTime === 0) {
+      this.preTime = tt
+      return
+    }
+    if(tt === this.preTime) {
+      return
+    }
+    const price = tr.trade_price
+    const volume = tr.trade_volume
+    if(this.vector.length == 0) {
+      this.vector.unshift(this.init(price, volume, tt))
+      return
+    }
+    let latest = this.vector[0]
+    if(tt > latest.timestamp) {
+      for(let t = latest.timestamp + (1000 * 60); t < tt; t += (1000 * 60)) {
+        this.vector.unshift(this.init(latest.close, 0, t))
+      }
+      this.vector.unshift(this.init(price, volume, tt))
+      this.vector.splice(this.limit)
+    } else {
+      for(let i = 0; i < this.vector.length; i++) {
+        if(this.vector[i].timestamp === tt) {
+          const ohlc = this.vector[i]
+          ohlc.high = Math.max(ohlc.high, price)
+          ohlc.low = Math.min(ohlc.low, price)
+          ohlc.volume += volume
+          ohlc.close = price
+          break
+        }
+      }
+    }
+  }
+
+  as(minutes: number) {
+    if((60 / minutes) !== Math.floor(60 / minutes)) {
+      throw new Error(`'${minutes}'분봉은 구할 수 없다.`)
+    }
+    const os = this.vector.reduce((os: I.OHLCType[], o: I.OHLCType) => {
+      const tt = Math.floor(o.timestamp / (minutes * 60 * 1000)) * (minutes * 60 * 1000)
+      if(os.length === 0) {
+        const merged = Object.assign({}, o)
+        merged.timestamp = tt
+        os.push(merged)
+        return os
+      }
+      const oo = os[os.length - 1]
+      if(oo.timestamp === tt) {
+        oo.open = o.open
+        oo.high = Math.max(oo.high, o.high)
+        oo.low = Math.min(oo.low, o.low)
+        oo.volume += o.volume
+      } else {
+        const merged = Object.assign({}, o)
+        merged.timestamp = tt
+        os.push(merged)
+      }
+      return os
+    }, [])
+    if(os.length !== 0) {
+      if(os[os.length - 1].timestamp !== this.vector[this.vector.length - 1].timestamp) {
+        os.pop()
+      }
+    }
+    return os
+  }
+
+  get length() {
+    return this.vector.length
+  }
+
+  private init(price: number, volume: number, timestamp: number): I.OHLCType {
+    return {
+      open: price,
+      high: price,
+      low: price,
+      close: price,
+      volume,
+      timestamp,
+    }
+  }
+}

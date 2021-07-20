@@ -8,15 +8,16 @@
       "type": "node",
       "request": "launch",
       "name": "Run test",
-      "program": "${workspaceRoot}/node_modules/ava/profile.js",
-      "args": [
-        // "${file}",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/ava",
+      "runtimeArgs": [
+        "--serial",
+        // "${file},"
         "${workspaceRoot}/dist.test/test/test.spec.js",
-        "--serial"
       ],
+      "outputCapture": "std",
       "skipFiles": [
         "<node_internals>/**/*.js"
-      ],
+      ]
     },
     {
       "type": "node",

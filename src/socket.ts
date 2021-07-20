@@ -120,9 +120,7 @@ export abstract class BaseUPbitSocket extends Logger {
 
   protected async start(): Promise<boolean> {
     for(const bot of this.getBots()) {
-      if(bot.start) {
-        await bot.start(this)
-      }
+      await bot._start(this)
     }
     this._isStarted = true
     return true
@@ -133,9 +131,7 @@ export abstract class BaseUPbitSocket extends Logger {
       return false
     }
     for(const bot of this.getBots()) {
-      if(bot.finish) {
-        await bot.finish()
-      }
+      await bot._finish()
     }
     this._isStarted = false
     return true
@@ -267,67 +263,110 @@ export class UPbitSocket extends BaseUPbitSocket {
 }
 
 
-export class UPbitSocketMock extends BaseUPbitSocket {
-  constructor(codes: string[], private readonly count: number, private readonly api: UPbit) {
-    super(codes)
+// export class UPbitTradeMock extends BaseUPbitSocket {
+//   constructor(code: string, private readonly api: UPbit) {
+//     super([code])
+//   }
+
+//   async open(): Promise<void> {
+//     await this.start()
+//     for(const code of this.getCodes(I.ReqType.Trade)) {
+//       let count = this.count
+//       let cursor
+//       const data: Iu.TradeTickType[] = []
+//       while(count > 0) {
+//         try {
+//           const res = await this.api.getTradesTicks({
+//             market: code,
+//             count: 1000,
+//             cursor,
+//           })
+//           cursor = res.data[res.data.length - 1].sequential_id
+//           data.push(...res.data)
+//           count -= res.data.length
+//         } catch(e) {
+//           console.log(e)
+//           if(e instanceof RequestError) {
+//           } else {
+//             throw e
+//           }
+//         }
+//       }
+//       const trs = this.convertTradeType(data.reverse())
+//       const bots = this.getBots(I.ReqType.Trade, code)
+//       for(const tr of trs) {
+//         for(const b of bots) {
+//           await b.trigger(tr)
+//         }
+//       }
+//     }
+//   }
+
+//   async close() {
+//     return this.finish()
+//   }
+
+//   convertTradeType(data: Iu.TradeTickType[]): I.TradeType[] {
+//     return data.map(d => {
+//       return {
+//         type: I.ReqType.Trade,
+//         code: d.market,
+//         trade_price: d.trade_price,
+//         trade_volume: d.trade_volume,
+//         ask_bid: d.ask_bid,
+//         prev_closing_price: d.prev_closing_price,
+//         change: '',
+//         change_price: d.change_price,
+//         trade_date: d.trade_date_utc,
+//         trade_time: d.trade_time_utc,
+//         trade_timestamp: d.timestamp,
+//         timestamp: d.timestamp,
+//         sequential_id: d.sequential_id,
+//         stream_type: 'REALTIME',
+//       }
+//     })
+//   }
+// }
+
+
+export class UPbitTradeMock extends BaseUPbitSocket {
+  constructor(code: string, private readonly api: UPbit) {
+    super([code])
   }
 
-  async open() {
+  async open(daysAgo?: number): Promise<void> {
     await this.start()
-    for(const code of this.getCodes(I.ReqType.Trade)) {
-      let count = this.count
-      let cursor
-      const data: Iu.TradeTickType[] = []
-      while(count > 0) {
-        try {
-          const res = await this.api.getTradesTicks({
-            market: code,
-            count: 1000,
-            cursor,
-          })
-          cursor = res.data[res.data.length - 1].sequential_id
-          data.push(...res.data)
-          count -= res.data.length
-        } catch(e) {
-          console.log(e)
-          if(e instanceof RequestError) {
-          } else {
-            throw e
-          }
-        }
+    const code = this.getCodes(I.ReqType.Trade)[0]
+    let currTime = '00:00:00'
+    try {
+      for(daysAgo = (daysAgo < 1)? 1 : daysAgo; daysAgo > 0; daysAgo--) {
+        const nextTime = this.nextTime(currTime)
+        const res = await this.api.getTradesTicks({
+          market: code,
+          count: 500,
+          daysAgo,
+          
+          ///todo
+        })
       }
-      const trs = this.convertTradeType(data.reverse())
-      const bots = this.getBots(I.ReqType.Trade, code)
-      for(const tr of trs) {
-        for(const b of bots) {
-          await b.trigger(tr)
-        }
+    } catch(e) {
+      console.log(e)
+      if(e instanceof RequestError) {
+      } else {
+        throw e
       }
     }
   }
 
-  async close() {
-    return this.finish()
+  async close(): Promise<boolean> {
+    return true
   }
 
-  convertTradeType(data: Iu.TradeTickType[]): I.TradeType[] {
-    return data.map(d => {
-      return {
-        type: I.ReqType.Trade,
-        code: d.market,
-        trade_price: d.trade_price,
-        trade_volume: d.trade_volume,
-        ask_bid: d.ask_bid,
-        prev_closing_price: d.prev_closing_price,
-        change: '',
-        change_price: d.change_price,
-        trade_date: d.trade_date_utc,
-        trade_time: d.trade_time_utc,
-        trade_timestamp: d.timestamp,
-        timestamp: d.timestamp,
-        sequential_id: d.sequential_id,
-        stream_type: 'REALTIME',
-      }
-    })
+  nextTime(time: string): string {
+    return '00:00:00'
+  }
+
+  isOverTime(time: string): boolean {
+    return false
   }
 }

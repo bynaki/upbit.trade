@@ -149,3 +149,16 @@ export interface HistoryFileType<C> extends HistoryType {
   time: string
   comment: C
 }
+
+export interface OHLCType {
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+  timestamp: number
+}
+
+export enum EventType {
+  Candle = 'candle',
+}

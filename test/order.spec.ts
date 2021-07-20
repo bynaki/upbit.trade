@@ -247,7 +247,7 @@ if(false) {
  * 사장가 매수매도
  * -- 실제로 거래됨 주의 --
  */
-if(false) {
+if(true) {
   const config = getConfig('./config.json')
   const api = new UPbit(config.upbit_keys)
   const order = new OrderMarket(api)
