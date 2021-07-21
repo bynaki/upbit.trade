@@ -11,7 +11,6 @@ import {
 } from './utils'
 
 
-
 export abstract class BaseSocketBot extends Logger {
   protected _queue: {
     trade: I.ResType[]
@@ -31,12 +30,6 @@ export abstract class BaseSocketBot extends Logger {
     orderbook: null,
     ticker: null,
   }
-  protected _listeners: {
-    [key: string]: {
-      callback: (...data) => void
-      args: any
-    }[]
-  } = {}
 
   constructor(public readonly code: string) {
     super(code)
@@ -110,20 +103,6 @@ export abstract class BaseSocketBot extends Logger {
     }
   }
 
-  addEventListener(event: I.EventType.Candle, callback: (ohlcs: I.OHLCType[]) => Promise<void>, args: {
-    minutes: number
-    limit: number
-  }): void
-  addEventListener<E extends I.EventType>(event: E, callback, args?) {
-    if(!this._listeners[event]) {
-      this._listeners[event] = []
-    }
-    this._listeners[event].push({
-      callback,
-      args,
-    })
-  }
-
   abstract start<S extends BaseUPbitSocket>(socket?: S): Promise<void>
   abstract finish(): Promise<void>
   abstract onTrade(data: I.TradeType): Promise<boolean|void>
@@ -131,6 +110,37 @@ export abstract class BaseSocketBot extends Logger {
   abstract onTicker(data: I.TickerType): Promise<boolean|void>
 }
 
+
+const listeners: {
+  [key: string]: {
+    [key: string]: {
+      callback: (...data) => void
+      args: any
+    }[]
+  }
+} = {}
+
+
+// function addEventListener(event: I.EventType.Candle, callback: (ohlcs: I.OHLCType[]) => Promise<void>, args: {
+//   minutes: number
+//   limit: number
+// }): void
+function addEventListener<B extends BaseSocketBot, E extends I.EventType>(
+target: B
+, event: E
+, callback
+, args?) {
+  if(!listeners[target.constructor.name]) {
+    listeners[target.constructor.name] = {}
+  }
+  if(!listeners[target.constructor.name][event]) {
+    listeners[target.constructor.name][event] = []
+  }
+  listeners[target.constructor.name][event].push({
+    callback,
+    args,
+  })
+}
 
 
 type DecoCandleListenerType = {
@@ -140,7 +150,7 @@ type DecoCandleListenerType = {
 
 export const addCandleListener: DecoCandleListenerType = (minutes: number, limit: number) => {
   return (target: BaseCandleBot, property: string, descriptor: PropertyDescriptor) => {
-    target.addEventListener(I.EventType.Candle, (...data) => {
+    addEventListener(target, I.EventType.Candle, (...data) => {
       return descriptor.value.call(target, ...data)
     }, {
       minutes,
@@ -159,21 +169,20 @@ export abstract class BaseCandleBot extends BaseSocketBot {
   }
 
   _start<S extends BaseUPbitSocket>(socket?: S): Promise<void> {
-    const candleListeners = this._listeners[I.EventType.Candle]
-    if(candleListeners) {
+    if(listeners[this.constructor.name] && listeners[this.constructor.name][I.EventType.Candle]) {
+      const candleListeners = listeners[this.constructor.name][I.EventType.Candle]
       let limit = candleListeners.reduce((max, l) => Math.max(l.args.minutes * l.args.limit, max), 0)
       if(limit !== 0) {
         this._ohlcMaker = new OHLCMaker(limit)
       }
     }
-    if(this.start) {
-      return this.start(socket)
-    }
+    return super._start()
   }
 
-  async onTrade(res: I.TradeType): Promise<boolean|void> {
-    const candleListeners = this._listeners[I.EventType.Candle]
-    if(candleListeners) {
+  async onTrade(tr: I.TradeType): Promise<boolean|void> {
+    if(listeners[this.constructor.name] && listeners[this.constructor.name][I.EventType.Candle]) {
+      this._ohlcMaker.push(tr)
+      const candleListeners = listeners[this.constructor.name][I.EventType.Candle]
       for(let i = 0; i < candleListeners.length; i++) {
         const os = this._ohlcMaker.as(candleListeners[i].args.minutes)
         if(os.length !== 0) {

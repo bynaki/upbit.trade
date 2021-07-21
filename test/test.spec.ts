@@ -6,6 +6,11 @@ import {
   UPbitSocket,
   BaseSocketBot,
   types as I,
+  BaseCandleBot,
+  addCandleListener,
+  UPbitTradeMock,
+  UPbit,
+  getConfig,
 } from '../src'
 import $4 from 'fourdollar'
 import {
@@ -347,6 +352,21 @@ class TestLogBot extends BaseSocketBot {
 }
 
 
+class TestCandleBot extends BaseCandleBot {
+  constructor(code: string, t: CbExecutionContext) {
+    super(code)
+  }
+  
+  @addCandleListener(1, 10)
+  onCandle1m(ohlcs: I.OHLCType[]) {
+    console.log(ohlcs[0])
+  }
+
+  start = null
+  finish = null
+}
+
+
 test.cb.skip('websocket > trade', t => {
   const ws = new WebSocket('wss://api.upbit.com/websocket/v1')
   ws.onopen = e => {
@@ -677,6 +697,37 @@ test.serial.cb('TestLatestBot', t => {
   const us = new UPbitSocket(['KRW-BTC'])
   us.addBot(new TestLatestBot('KRW-BTC', t))
   us.open()
+})
+
+
+test.serial.cb('TestCandleBot', t => {
+  t.timeout(200000)
+  const us = new UPbitSocket(['KRW-BTC'])
+  us.addBot(new TestCandleBot('KRW-BTC', t))
+  us.open()
+})
+
+const api = new UPbit(getConfig('./config.json').upbit_keys)
+
+test.serial.only('UPbitTradeMock: getTradesTicksWithTime()', async t => {
+  const us = new UPbitTradeMock('KRW-BTC', api)
+  let res = await us.getTradesTicksWithTime('KRW-BTC', 0, '00:00:00', '00:00:10', 50)
+  t.is(res[0].trade_time_utc, '00:00:00')
+  t.is(res[res.length - 1].trade_time_utc, '00:00:09')
+  res.reduce((p, tr) => {
+    if(p) {
+      t.true(tr.sequential_id > p.sequential_id)
+    }
+    return tr
+  }, null)
+})
+
+test.serial('UPbitTradeMock: nextTime()', t => {
+  const us = new UPbitTradeMock('KRW-BTC', api)
+  t.is(us.nextTime('00:00:00', 5), '00:05:00')
+  t.is(us.nextTime('09:59:00', 3), '10:02:00')
+  t.is(us.nextTime('23:58:00', 3), '00:01:00')
+  t.is(us.nextTime('23:58:00', 2), '00:00:00')
 })
 
 test.after(() => remove(join(__dirname, 'log')))

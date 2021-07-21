@@ -14,7 +14,7 @@ if(true) {
   test('hello', async t => {
     const res = await api.getTradesTicks({
       market: 'KRW-BTC',
-      daysAgo: 6,
+      daysAgo: 0,
       to: '00:02:00', // 포함안됨
       count: 1000,
     })
@@ -22,8 +22,8 @@ if(true) {
     console.log(res.data.length)
     const res2 = await api.getTradesTicks({
       market: 'KRW-BTC',
-      daysAgo: 6,
-      count: 10,
+      daysAgo: 0,
+      count: 200,
       cursor: res.data[res.data.length - 1].sequential_id,
     })
     console.log(res2.data)
