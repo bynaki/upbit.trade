@@ -328,127 +328,141 @@ export class UPbitSocket extends BaseUPbitSocket {
 //   }
 // }
 
+// export class UPbitTradeMock extends BaseUPbitSocket {
+// }
 
-export class UPbitTradeMock extends BaseUPbitSocket {
-  constructor(code: string, private readonly api: UPbit) {
-    super([code])
-  }
 
-  private async getTradesTicks(params: Iu.TradeTickParam) {
-    try {
-      return this.api.getTradesTicks(params)
-    } catch(e) {
-      if(e instanceof RequestError) {
-        if(e.status === 429) {
-          return this.getTradesTicks(params)
-        }
-      } else {
-        throw e
-      }
-    }
-  }
+// export class UPbitTradeMock extends BaseUPbitSocket {
+//   constructor(code: string, private readonly api: UPbit) {
+//     super([code])
+//   }
 
-  async getTradesTicksWithTime(code: string, daysAgo: number, currTime: string, nextTime: string, count: number = 500) {
-    const res = await this.getTradesTicks({
-      market: code,
-      count,
-      daysAgo,
-      to: nextTime,
-    })
-    const allTrs: Iu.TradeTickType[] = []
-    let trs = res.data
-    const curr = new Date(`${trs[0].trade_date_utc} ${currTime}`).getTime()
-    while(trs.length !== 0 && trs[trs.length - 1].timestamp >= curr) {
-      allTrs.push(...trs)
-      const res = await this.getTradesTicks({
-        market: code,
-        count,
-        daysAgo,
-        cursor: trs[trs.length - 1].sequential_id,
-      })
-      trs = res.data
-    }
-    if(trs.length !== 0) {
-      const idx = trs.findIndex(tr => tr.timestamp < curr)
-      allTrs.push(...trs.slice(0, idx))
-    }
-    return allTrs.reverse()
-  }
+//   private async getTradesTicks(params: Iu.TradeTickParam): Promise<Iu.Response<Iu.TradeTickType[]>> {
+//     try {
+//       return this.api.getTradesTicks(params)
+//     } catch(e) {
+//       if(e instanceof RequestError) {
+//         if(e.status === 429) {
+//           return this.getTradesTicks(params)
+//         }
+//       } else {
+//         throw e
+//       }
+//     }
+//   }
 
-  convertTradeData(tt: Iu.TradeTickType, code: string): I.TradeType {
-    return {
-      type: I.ReqType.Trade,
-      code,
-      trade_price: tt.trade_price,
-      trade_volume: tt.trade_volume,
-      ask_bid: tt.ask_bid,
-      prev_closing_price: tt.prev_closing_price,
-      change: '',
-      change_price: tt.change_price,
-      trade_date: tt.trade_date_utc,
-      trade_time: tt.trade_time_utc,
-      trade_timestamp: tt.timestamp,
-      timestamp: tt.timestamp,
-      sequential_id: tt.sequential_id,
-      stream_type: 'REALTIME',
-    }
-  }
+//   async getTradesTicksLoop(
+//     params: {
+//       daysAgo?: number
+//       to?: string
+//       baseId?: number
+//       count?: number
+//     }) {
+//     let code = this.codes[0]
+//     let {daysAgo, to, baseId, count} = params
+//     count = !count? 500 : count
+//     const res = await this.getTradesTicks({
+//       market: code,
+//       daysAgo,
+//       to,
+//       count,
+//     })
+//     const allTrs: Iu.TradeTickType[] = []
+//     let trs = res.data
+//     while(trs.length !== 0 && trs[trs.length - 1].sequential_id > baseId) {
+//       allTrs.push(...trs)
+//       const res = await this.getTradesTicks({
+//         market: code,
+//         count,
+//         daysAgo,
+//         cursor: trs[trs.length - 1].sequential_id,
+//       })
+//       trs = res.data
+//     }
+//     if(trs.length !== 0) {
+//       const idx = trs.findIndex(tr => tr.sequential_id === baseId)
+//       allTrs.push(...trs.slice(0, idx))
+//     }
+//     return allTrs.reverse()
+//   }
 
-  async open(daysAgo: number = 0): Promise<void> {
-    await this.start()
-    const code = this.getCodes(I.ReqType.Trade)[0]
-    for(; daysAgo >= 0; daysAgo--) {
-      let currTime = '00:00:00'
-      const nextTime = this.nextTime(currTime, 5)
-      if(nextTime === '') {
-        continue
-      }
-    }
-    // try {
-    //   for(daysAgo = (daysAgo < 1)? 1 : daysAgo; daysAgo > 0; daysAgo--) {
-    //     const nextTime = this.nextTime(currTime, 2)
-    //     const res = await this.api.getTradesTicks({
-    //       market: code,
-    //       count: 500,
-    //       daysAgo,
-    //       to: nextTime,
-    //     })
-    //     const reversed: Iu.TradeTickType[] = []
-    //     let trs = res.data
-    //     const curr = new Date(`${trs[0].trade_date_utc} ${currTime}`).getTime()
-    //     const next = new Date(`${trs[0].trade_date_utc} ${nextTime}`).getTime()
-    //     while(trs.length !== 0 && trs[trs.length - 1].timestamp >= curr) {
-    //       reversed.push(...trs.reverse())
-    //       const res = await this.api.getTradesTicks({
-    //         market: code,
-    //         count: 500,
-    //         daysAgo,
-    //         cursor: trs[trs.length].sequential_id,
-    //       })
-    //       trs = res.data
-    //     }
-    //   }
-    // } catch(e) {
-    //   console.log(e)
-    //   if(e instanceof RequestError) {
-    //   } else {
-    //     throw e
-    //   }
-    // }
-  }
+//   convertTradeData(tt: Iu.TradeTickType, code: string): I.TradeType {
+//     return {
+//       type: I.ReqType.Trade,
+//       code,
+//       trade_price: tt.trade_price,
+//       trade_volume: tt.trade_volume,
+//       ask_bid: tt.ask_bid,
+//       prev_closing_price: tt.prev_closing_price,
+//       change: '',
+//       change_price: tt.change_price,
+//       trade_date: tt.trade_date_utc,
+//       trade_time: tt.trade_time_utc,
+//       trade_timestamp: tt.timestamp,
+//       timestamp: tt.timestamp,
+//       sequential_id: tt.sequential_id,
+//       stream_type: 'REALTIME',
+//     }
+//   }
 
-  async close(): Promise<boolean> {
-    return true
-  }
+//   async open(daysAgo: number = 0): Promise<void> {
+//     const codes = this.getCodes(I.ReqType.Trade)
+    
 
-  nextTime(time: string, m: number): string {
-    const curr = new Date(`2000-01-01 ${time}`)
-    const next = new Date(curr.getTime() + (m * 60 * 1000))
-    const hours = (next.getHours() > 9)? next.getHours().toString() : `0${next.getHours().toString()}`
-    const minutes = (next.getMinutes() > 9)? next.getMinutes().toString() : `0${next.getMinutes().toString()}`
-    // if((new Date(`2000-01-01 ${hours}:${minutes}:00`)).getTime() < curr.getTime()) {
-    //   return ''
-    // }
-    return `${hours}:${minutes}:00`
-  }
-}
+//     await this.start()
+//     const code = this.getCodes(I.ReqType.Trade)[0]
+//     for(; daysAgo >= 0; daysAgo--) {
+//       let currTime = '00:00:00'
+//       const nextTime = this.nextTime(currTime, 5)
+//       if(nextTime === '00:00:00') {
+//         continue
+//       }
+//     }
+//     // try {
+//     //   for(daysAgo = (daysAgo < 1)? 1 : daysAgo; daysAgo > 0; daysAgo--) {
+//     //     const nextTime = this.nextTime(currTime, 2)
+//     //     const res = await this.api.getTradesTicks({
+//     //       market: code,
+//     //       count: 500,
+//     //       daysAgo,
+//     //       to: nextTime,
+//     //     })
+//     //     const reversed: Iu.TradeTickType[] = []
+//     //     let trs = res.data
+//     //     const curr = new Date(`${trs[0].trade_date_utc} ${currTime}`).getTime()
+//     //     const next = new Date(`${trs[0].trade_date_utc} ${nextTime}`).getTime()
+//     //     while(trs.length !== 0 && trs[trs.length - 1].timestamp >= curr) {
+//     //       reversed.push(...trs.reverse())
+//     //       const res = await this.api.getTradesTicks({
+//     //         market: code,
+//     //         count: 500,
+//     //         daysAgo,
+//     //         cursor: trs[trs.length].sequential_id,
+//     //       })
+//     //       trs = res.data
+//     //     }
+//     //   }
+//     // } catch(e) {
+//     //   console.log(e)
+//     //   if(e instanceof RequestError) {
+//     //   } else {
+//     //     throw e
+//     //   }
+//     // }
+//   }
+
+//   async close(): Promise<boolean> {
+//     return true
+//   }
+
+//   nextTime(time: string, m: number): string {
+//     const curr = new Date(`2000-01-01 ${time}`)
+//     const next = new Date(curr.getTime() + (m * 60 * 1000))
+//     const hours = (next.getHours() > 9)? next.getHours().toString() : `0${next.getHours().toString()}`
+//     const minutes = (next.getMinutes() > 9)? next.getMinutes().toString() : `0${next.getMinutes().toString()}`
+//     // if((new Date(`2000-01-01 ${hours}:${minutes}:00`)).getTime() < curr.getTime()) {
+//     //   return ''
+//     // }
+//     return `${hours}:${minutes}:00`
+//   }
+// }

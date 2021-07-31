@@ -1,11 +1,12 @@
 {
   "compilerOptions": {
+    "allowSyntheticDefaultImports": true,
+    "lib": ["es2021", "dom"],
     "module": "commonjs",
     "moduleResolution": "node",
+    "target": "es2021",
     "outDir": "dist",
-    "target": "es6",
-    "lib": ["es7", "dom"],
-    "sourceMap": false,
+    "sourceMap": true,
     "declaration": true,
     "noImplicitAny": false,
     "experimentalDecorators": true,
