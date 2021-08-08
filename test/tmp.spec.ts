@@ -6,10 +6,13 @@ import {
 import {
   getConfig,
 } from '../src/utils'
+import {
+  stop,
+} from 'fourdollar'
 
 
 
-if(true) {
+if(false) {
   const api = new UPbit(getConfig('./config.json').upbit_keys)
   test('hello', async t => {
     const res = await api.getTradesTicks({
@@ -28,6 +31,17 @@ if(true) {
     })
     console.log(res2.data)
     console.log(res2.data.length)
+    t.pass()
+  })
+}
+
+if(true) {
+  test('Promise.all()', async t => {
+    const times = [2000, 500, 3000, 1000]
+    await Promise.all(times.map(async t => {
+      await stop(t)
+      console.log(t)
+    }))
     t.pass()
   })
 }

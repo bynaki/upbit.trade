@@ -10,9 +10,10 @@ import {
 } from 'fourdollar'
 import {
   UPbit,
+  upbit_types as Iu,
 } from 'cryptocurrency.api'
 import {
-  TradeDB as TradeDb,
+  TradeDb,
 } from './database'
 
 
@@ -269,9 +270,40 @@ export class UPbitTradeMock extends BaseUPbitSocket {
     super(db.staticCodes())
   }
 
-  async open(): Promise<void> {}
+  async open(): Promise<void> {
+    await this.start()
+    const codes = await this.db.codes()
+    for(let code of codes) {
+      const bots = this.getBots(I.ReqType.Trade, code)
+      for await (let tr of this.db.each(code)) {
+        const converted = this.convertTradeType(tr)
+        await Promise.all(bots.map(bot => bot.trigger(converted)))
+      }
+      await Promise.all(bots.map(bot => bot.finish()))
+    }
+  }
+
   async close(): Promise<boolean> {
-    return true
+    return
+  }
+
+  private convertTradeType(tr: Iu.TradeTickType): I.TradeType {
+    return {
+      type: I.ReqType.Trade,
+      code: tr.market,
+      trade_price: tr.trade_price,
+      trade_volume: tr.trade_volume,
+      ask_bid: tr.ask_bid,
+      prev_closing_price: tr.prev_closing_price,
+      change: '',
+      change_price: tr.change_price,
+      trade_date: tr.trade_date_utc,
+      trade_time: tr.trade_time_utc,
+      trade_timestamp: tr.timestamp,
+      timestamp: tr.timestamp,
+      sequential_id: tr.sequential_id,
+      stream_type: 'REALTIME',
+    }
   }
 }
 

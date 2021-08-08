@@ -58,6 +58,7 @@ export class TradeDb {
         filename: this.filename,
         driver: sqlite3,
       })
+      this._codes = await this.codes()
       return 0
     }
     if(!codes || !opts) {
@@ -97,7 +98,7 @@ export class TradeDb {
     return res.count
   }
 
-  async * each(code: string) {
+  async * each(code: string): AsyncGenerator<Iu.TradeTickType, void, unknown> {
     const length = 500
     let offset = 0
     let trs = []
