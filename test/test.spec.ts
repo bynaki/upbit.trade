@@ -8,7 +8,6 @@ import {
   types as I,
   BaseCandleBot,
   addCandleListener,
-  UPbitTradeMock,
   UPbit,
   getConfig,
 } from '../src'
@@ -22,8 +21,6 @@ import {
 import {
   remove,
 } from 'fs-extra'
-import { TradeTickType } from 'cryptocurrency.api/dist/upbit.types'
-
 
 
 class TestBot extends BaseSocketBot {
@@ -710,43 +707,43 @@ test.serial.cb('TestCandleBot', t => {
 
 const api = new UPbit(getConfig('./config.json').upbit_keys)
 
-test.serial.only('UPbitTradMock#getTradesTicksLoop()', async t => {
-  const us = new UPbitTradeMock('KRW-BTC', api)
-  let next = us.nextTime('00:00:00', 5)
-  const res1 = await us.getTradesTicksLoop({
-    daysAgo: 7,
-    to: next
-  })
-  next = us.nextTime(next, 5)
-  const res2 = await us.getTradesTicksLoop({
-    daysAgo: 7,
-    to: next,
-    baseId: res1[res1.length - 1].sequential_id
-  })
-  next = us.nextTime(next, 5)
-  const res3 = await us.getTradesTicksLoop({
-    daysAgo: 7,
-    to: next,
-    baseId: res2[res2.length - 1].sequential_id
-  })
-  const combined: TradeTickType[] = []
-  combined.push(...res1, ...res2, ...res3)
-  console.log(`res1 len: ${res1.length}, res2 len: ${res2.length}, res3 len: ${res3.length}, length: ${combined.length}`)
-  combined.reduce((p, tr) => {
-    if(!p) {
-      return tr
-    }
-    t.true(p.sequential_id < tr.sequential_id)
-    return tr
-  }, null)
-})
+// test.serial.only('UPbitTradMock#getTradesTicksLoop()', async t => {
+//   const us = new UPbitTradeMock('KRW-BTC', api)
+//   let next = us.nextTime('00:00:00', 5)
+//   const res1 = await us.getTradesTicksLoop({
+//     daysAgo: 7,
+//     to: next
+//   })
+//   next = us.nextTime(next, 5)
+//   const res2 = await us.getTradesTicksLoop({
+//     daysAgo: 7,
+//     to: next,
+//     baseId: res1[res1.length - 1].sequential_id
+//   })
+//   next = us.nextTime(next, 5)
+//   const res3 = await us.getTradesTicksLoop({
+//     daysAgo: 7,
+//     to: next,
+//     baseId: res2[res2.length - 1].sequential_id
+//   })
+//   const combined: TradeTickType[] = []
+//   combined.push(...res1, ...res2, ...res3)
+//   console.log(`res1 len: ${res1.length}, res2 len: ${res2.length}, res3 len: ${res3.length}, length: ${combined.length}`)
+//   combined.reduce((p, tr) => {
+//     if(!p) {
+//       return tr
+//     }
+//     t.true(p.sequential_id < tr.sequential_id)
+//     return tr
+//   }, null)
+// })
 
-test.serial.only('UPbitTradeMock: nextTime()', t => {
-  const us = new UPbitTradeMock('KRW-BTC', api)
-  t.is(us.nextTime('00:00:00', 5), '00:05:00')
-  t.is(us.nextTime('09:59:00', 3), '10:02:00')
-  t.is(us.nextTime('23:58:00', 3), '00:01:00')
-  t.is(us.nextTime('23:58:00', 2), '00:00:00')
-})
+// test.serial.only('UPbitTradeMock: nextTime()', t => {
+//   const us = new UPbitTradeMock('KRW-BTC', api)
+//   t.is(us.nextTime('00:00:00', 5), '00:05:00')
+//   t.is(us.nextTime('09:59:00', 3), '10:02:00')
+//   t.is(us.nextTime('23:58:00', 3), '00:01:00')
+//   t.is(us.nextTime('23:58:00', 2), '00:00:00')
+// })
 
 test.after(() => remove(join(__dirname, 'log')))

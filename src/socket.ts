@@ -10,9 +10,10 @@ import {
 } from 'fourdollar'
 import {
   UPbit,
-  upbit_types as Iu,
-  RequestError,
 } from 'cryptocurrency.api'
+import {
+  TradeDB as TradeDb,
+} from './database'
 
 
 class BotManager {
@@ -259,6 +260,18 @@ export class UPbitSocket extends BaseUPbitSocket {
       return this._ws.readyState
     }
     return I.SocketState.Closed
+  }
+}
+
+
+export class UPbitTradeMock extends BaseUPbitSocket {
+  constructor(private readonly db: TradeDb) {
+    super(db.staticCodes())
+  }
+
+  async open(): Promise<void> {}
+  async close(): Promise<boolean> {
+    return true
   }
 }
 

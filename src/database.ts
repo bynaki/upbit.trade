@@ -1,5 +1,6 @@
 import {
   verbose,
+  Database as sqlite3,
 } from 'sqlite3'
 import {
   Database,
@@ -16,12 +17,14 @@ import {
 } from 'fs'
 import { stop } from 'fourdollar'
 
-const sqlite3 = verbose().Database
 
 
-export class TradeDB {
+// const sqlite3 = verbose().Database
+
+
+export class TradeDb {
   private db: Database
-  private _already = false
+  private _codes: string[] = null
 
   constructor(private readonly filename: string) {
   }
@@ -31,23 +34,36 @@ export class TradeDB {
     return code === converted? code.replace('_', '-') : converted
   }
 
-  get already(): boolean {
-    return this._already
-  }
-
   async codes(): Promise<string[]> {
     return (await this.db.all('SELECT code FROM codes')).map(row => row.code)
   }
 
-  async ready(codes: string[]) {
+  staticCodes(): string[] {
+    return this._codes
+  }
+
+  ready(): Promise<number>
+  ready(codes: string[], opts: {
+    api: UPbit
+    daysAgo: number
+    to?: string
+  }): Promise<number>
+  async ready(codes?: string[], opts?: {
+    api: UPbit
+    daysAgo: number
+    to?: string
+  }): Promise<number> {
     if(existsSync(this.filename)) {
       this.db = await open({
         filename: this.filename,
         driver: sqlite3,
       })
-      this._already = true
-      return this.codes()
+      return 0
     }
+    if(!codes || !opts) {
+      throw new Error(`${this.filename} database가 없기 때문에 인수를 전달해야 한다.`)
+    }
+    this._codes = codes
     this.db = await open({
       filename: this.filename,
       driver: sqlite3,
@@ -68,16 +84,45 @@ export class TradeDB {
         sequential_id INTEGER PRIMARY KEY
       )`)
     }
-    return this.codes()
+    let count = 0
+    for(let code of await this.codes()) {
+      count += await this.insert(code, opts)
+    }
+    return count
   }
 
-  async insert(opts: {
+  async count(code: string): Promise<number> {
+    const sql = `SELECT COUNT(*) as count FROM ${this.convertCodeName(code)}`
+    const res = await this.db.get(sql)
+    return res.count
+  }
+
+  async * each(code: string) {
+    const length = 500
+    let offset = 0
+    let trs = []
+    do {
+      trs = await this.get(code, offset, length)
+      for(let tr of trs) {
+        yield tr
+      }
+      offset += trs.length
+    } while(trs.length !== 0)
+  }
+
+  get(code: string, offset: number, length: number): Promise<Iu.TradeTickType[]> {
+    const sql = `SELECT * FROM ${this.convertCodeName(code)}
+      ORDER BY sequential_id ASC
+      LIMIT ${length} OFFSET ${offset}`
+    return this.db.all(sql)
+  }
+
+  private async insert(code: string, opts: {
     api: UPbit
-    code: string
     daysAgo: number
     to?: string
   }): Promise<number> {
-    let {api, code, daysAgo} = opts
+    let {api, daysAgo}  = opts
     const getTradesTicks = async (params: Iu.TradeTickParam): Promise<Iu.Response<Iu.TradeTickType[]>> => {
       try {
         return api.getTradesTicks(params)
