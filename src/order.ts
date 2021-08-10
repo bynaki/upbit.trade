@@ -439,8 +439,8 @@ export class OrderHistory<C> {
 
 
 
-export class OrderMarketMock<T extends BaseSocketBot> extends BaseOrder {
-  constructor(private readonly bot: T) {
+export class OrderMarketMock extends BaseOrder {
+  constructor(private readonly bot: BaseSocketBot) {
     super(null)
   }
 

@@ -126,10 +126,7 @@ const listeners: {
 //   limit: number
 // }): void
 function addEventListener<B extends BaseSocketBot, E extends I.EventType>(
-target: B
-, event: E
-, callback
-, args?) {
+  target: B , event: E , callback , args?) {
   if(!listeners[target.constructor.name]) {
     listeners[target.constructor.name] = {}
   }
