@@ -144,10 +144,10 @@ export interface HistoryType {
   errorAsk: any[]
 }
 
-export interface HistoryFileType<C> extends HistoryType {
+export interface HistoryFileType<B> extends HistoryType {
   time_stamp: number
   time: string
-  comment: C
+  brief: B
 }
 
 export interface OHLCType {

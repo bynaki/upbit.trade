@@ -7,6 +7,7 @@ export * from './base.bot'
 export * from './order'
 export * from './utils'
 export * from './database'
+export * from './upbit.sequence'
 export {
   upbit_types,
   UPbit,

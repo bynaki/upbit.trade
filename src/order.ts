@@ -399,7 +399,7 @@ export class OrderMarket extends BaseOrder {
 
 
 
-export class OrderHistory<C> {
+export class OrderHistory<B> {
   private _stream: WriteStream
 
   constructor(public readonly path: string) {
@@ -410,13 +410,13 @@ export class OrderHistory<C> {
     })
   }
 
-  append(history: I.HistoryType, comment?: C): Promise<I.HistoryFileType<C>>  {
+  append(history: I.HistoryType, brief?: B): Promise<I.HistoryFileType<B>>  {
     const t = new Date()
     const contents = Object.assign(Object.assign({}, history), {
       time_stamp: t.getTime(),
       time: format(t, 'isoDateTime'),
-      comment,
-    }) as I.HistoryFileType<C>
+      brief,
+    }) as I.HistoryFileType<B>
     const stringify = '\n\n' + JSON.stringify(contents, null, 2)
     return new Promise((resolve, reject) => {
       this._stream.write(stringify, err => {
@@ -429,7 +429,7 @@ export class OrderHistory<C> {
     })
   }
 
-  async read(): Promise<I.HistoryFileType<C>[]> {
+  async read(): Promise<I.HistoryFileType<B>[]> {
     const stringify = (await readFile(this.path)).toString()
     const splited = stringify.split('\n\n')
     splited.splice(0, 1)

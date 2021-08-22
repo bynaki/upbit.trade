@@ -238,7 +238,7 @@ if(false) {
     t.is(hh.errorAsk.length, 1)
     console.log(hh.errorBid[0])
     console.log(hh.errorAsk[0])
-    t.is(hh.comment.name, 'test')
+    t.is(hh.brief.name, 'test')
   })
 }
 
@@ -323,37 +323,3 @@ if(true) {
     t.deepEqual(h, hh[hh.length - 1])
   })
 }
-
-
-/**
- * 가상 매매
- */
-// if(true) {
-//   const config = getConfig('./config.json')
-//   const api = new UPbit(config.upbit_keys)
-//   const order = new OrderMock(api)
-
-//   test.serial('ordermock > #bidMarket()', async t => {
-//     const res = await order.bidMarket({
-//       market: 'KRW-BTC',
-//       price: 5000,
-//     })
-//     console.log(res)
-//     console.log(await order.updateStatus())
-//     t.pass()
-//   })
-
-//   test.serial('ordermock > #cancel(): can not cancel', async t => {
-//     const res = await order.cancel()
-//     console.log(res)
-//     console.log(await order.updateStatus())
-//     t.pass()
-//   })
-
-//   test.serial('ordermock > #askMarket()', async t => {
-//     const res = await order.askMarket()
-//     console.log(res)
-//     console.log(await order.updateStatus())
-//     t.pass()
-//   })
-// }

@@ -16,6 +16,9 @@ import {
 import {
   join,
 } from 'path'
+import {
+  remove,
+} from 'fs-extra'
 
 
 const config = getConfig('./config.json')
@@ -24,20 +27,25 @@ const config = getConfig('./config.json')
 class TestTradeBot extends BaseSocketBot {
   public pre: I.TradeType = null
   public count = 0
-  public started = false
-  public finished = false
+  public started = 0
+  public finished = 0
+  private t: ExecutionContext = null
 
-  constructor(code: string, private readonly t: ExecutionContext) {
+  constructor(code: string) {
     super(code)
   }
 
+  setTestObject(t: ExecutionContext) {
+    this.t = t
+  }
+
   async start() {
-    this.started = true
+    this.started += 1
     console.log('started')
   }
 
   async finish() {
-    this.finished = true
+    this.finished += 1
     console.log('finished')
   }
 
@@ -143,35 +151,40 @@ const codes = [
   "KRW-MTL",
 ]
 
+test.before(() => {
+  remove(join(__dirname, 'mock-test.db'))
+})
+
 test.serial('UPbitTradeMock', async t => {
   const api = new UPbit(config.upbit_keys)
   const db = new TradeDb(join(__dirname, 'mock-test.db'))
-  await db.ready(codes, {
-    api,
+  await db.ready(api, codes, {
     daysAgo: 0,
     to: '00:00:10',
   })
+  console.log(await db.getCodes())
   const mock = new UPbitTradeMock(db)
-  mock.addBot(new TestTradeBot('KRW-BTC', t))
+  mock.addBotClass(TestTradeBot)
+  const bots: TestTradeBot[] = mock.getBots<TestTradeBot>(I.ReqType.Trade)
+  bots.forEach(bot => bot.setTestObject(t))
   await mock.open()
-  const bot: TestTradeBot = mock.getBots(I.ReqType.Trade, 'KRW-BTC')[0] as TestTradeBot
-  t.true(bot.started)
-  t.true(bot.finished)
-  t.true(bot.count > 0)
-  t.is(bot.count, await db.count('KRW-BTC'))
-  t.is(bot.pre.trade_time, '00:00:09')
+  for(let bot of bots) {
+    t.is(bot.started, 1)
+    t.is(bot.finished, 1)
+    t.true(bot.count > 0)
+    t.is(bot.count, await db.count(bot.code))
+    t.is(bot.pre.trade_time, '00:00:09')
+  }
 })
 
 test.serial('OrderMarketMock', async t => {
   const api = new UPbit(config.upbit_keys)
   const db = new TradeDb(join(__dirname, 'mock-test.db'))
-  await db.ready(codes, {
-    api,
+  await db.ready(api, codes, {
     daysAgo: 0,
     to: '00:00:10',
   })
   const mock = new UPbitTradeMock(db)
   mock.addBot(new TestOrderBot('KRW-BTC', t))
   await mock.open()
-  t.pass()
 })

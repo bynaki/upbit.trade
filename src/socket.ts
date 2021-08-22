@@ -267,12 +267,12 @@ export class UPbitSocket extends BaseUPbitSocket {
 
 export class UPbitTradeMock extends BaseUPbitSocket {
   constructor(private readonly db: TradeDb) {
-    super(db.staticCodes())
+    super(db.codes)
   }
 
   async open(): Promise<void> {
     await this.start()
-    const codes = await this.db.codes()
+    const codes = await this.db.getCodes()
     for(let code of codes) {
       const bots = this.getBots(I.ReqType.Trade, code)
       for await (let tr of this.db.each(code)) {
