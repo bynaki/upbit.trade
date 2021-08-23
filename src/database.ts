@@ -14,48 +14,51 @@ import {
 import {
   existsSync,
 } from 'fs'
-import { stop } from 'fourdollar'
 import { toNumber } from 'lodash'
 import {
   format,
 } from 'fecha'
+import {
+  UPbitSequence,
+  getConfig,
+} from './'
 
 
 
 // const sqlite3 = verbose().Database
 
 
-async function getTradesTicks(api: UPbit, params: Iu.TradeTickParam): Promise<Iu.Response<Iu.TradeTickType[]>> {
-  try {
-    const res = await api.getTradesTicks(params)
-    return res
-  } catch(e) {
-    if(e instanceof RequestError) {
-      if(e.status === 429) {
-        await stop(1000)
-        return getTradesTicks(api, params)
-      } else {
-        throw e
-      }
-    }
-  }
-}
+// async function getTradesTicks(api: UPbit, params: Iu.TradeTickParam): Promise<Iu.Response<Iu.TradeTickType[]>> {
+//   try {
+//     const res = await api.getTradesTicks(params)
+//     return res
+//   } catch(e) {
+//     if(e instanceof RequestError) {
+//       if(e.status === 429) {
+//         await stop(1000)
+//         return getTradesTicks(api, params)
+//       } else {
+//         throw e
+//       }
+//     }
+//   }
+// }
 
-export async function getCandlesMinutes(api: UPbit, min: 1|3|5|15|10|30|60|240, params: Iu.CandleParam): Promise<Iu.Response<Iu.CandleMinuteType[]>> {
-  try {
-    const res = await api.getCandlesMinutes(min, params)
-    return res
-  } catch(e) {
-    if(e instanceof RequestError) {
-      if(e.status === 429) {
-        await stop(1000)
-        return getCandlesMinutes(api, min, params)
-      } else {
-        throw e
-      }
-    }
-  }
-}
+// export async function getCandlesMinutes(api: UPbit, min: 1|3|5|15|10|30|60|240, params: Iu.CandleParam): Promise<Iu.Response<Iu.CandleMinuteType[]>> {
+//   try {
+//     const res = await api.getCandlesMinutes(min, params)
+//     return res
+//   } catch(e) {
+//     if(e instanceof RequestError) {
+//       if(e.status === 429) {
+//         await stop(1000)
+//         return getCandlesMinutes(api, min, params)
+//       } else {
+//         throw e
+//       }
+//     }
+//   }
+// }
 
 
 export abstract class BaseDb {
@@ -121,16 +124,19 @@ export abstract class BaseDb {
 
 
 export class TradeDb extends BaseDb {
+  api: UPbitSequence
+
   constructor(filename: string) {
     super(filename)
+    this.api = new UPbitSequence(getConfig('./config.json').upbit_keys)
   }
 
   ready(): Promise<boolean>
-  async ready(api: UPbit, codes: string[], opts: {
+  async ready(codes: string[], opts: {
     daysAgo: number
     to?: string
   }): Promise<boolean>
-  async ready(api?: UPbit, codes?: string[], opts?: {
+  async ready(codes?: string[], opts?: {
     daysAgo: number
     to?: string
   }): Promise<boolean> {
@@ -153,7 +159,7 @@ export class TradeDb extends BaseDb {
       throw new Error(`${this.filename} database가 없기 때문에 인수를 전달해야 한다.`)
     }
     for(let code of this.codes) {
-      await this.insert(api, code, opts)
+      await this.insert(code, opts)
     }
     return false
   }
@@ -193,7 +199,7 @@ export class TradeDb extends BaseDb {
     return Object.assign(val, {trade_volume: toNumber(val.trade_volume)})
   }
 
-  private async insert(api: UPbit, code: string, opts: {
+  private async insert(code: string, opts: {
     daysAgo: number
     to?: string // utc
   }): Promise<number> {
@@ -207,22 +213,14 @@ export class TradeDb extends BaseDb {
       } else {
         to = undefined
       }
-      let res: Iu.TradeTickType[] = (await getTradesTicks(api, {
+      for await (let trs of this.api.chunkTradesTicks({
         market: code,
-        count: 500,
         daysAgo: day,
         to,
-      })).data
-      while(res.length !== 0) {
+      })) {
         await this.db.run(`INSERT INTO ${table} VALUES ` + 
-          res.map(tr => this.toDbValues(tr)).join(','))
-        count += res.length
-        res = (await getTradesTicks(api, {
-          market: code,
-          count: 500,
-          daysAgo: day,
-          cursor: res[res.length - 1].sequential_id
-        })).data
+          trs.map(tr => this.toDbValues(tr)).join(','))
+        count += trs.length
       }
     }
     return count
@@ -247,17 +245,20 @@ export class TradeDb extends BaseDb {
 
 
 export class CandleDb extends BaseDb {
+  private api: UPbitSequence
+
   constructor(filename: string) {
     super(filename)
+    this.api = new UPbitSequence(getConfig().upbit_keys)
   }
 
   ready(): Promise<boolean>
-  ready(api: UPbit, codes: string[], opts: {
+  ready(codes: string[], opts: {
     min: 1|3|5|15|10|30|60|240
     from: string
     to?: string
   }): Promise<boolean>
-  async ready(api?: UPbit, codes?: string[], opts?: {
+  async ready(codes?: string[], opts?: {
     min: 1|3|5|15|10|30|60|240
     from: string
     to?: string
@@ -278,42 +279,32 @@ export class CandleDb extends BaseDb {
     if(already) {
       return true
     }
-    if(!api || !codes || !opts) {
+    if(!codes || !opts) {
       throw new Error(`${this.filename} database가 없기 때문에 인수를 전달해야 한다.`)
     }
     for(let code of this.codes) {
-      await this.insert(api, code, opts)
+      await this.insert(code, opts)
     }
     return false
   }
 
-  private async insert(api: UPbit, code: string, opts: {
+  private async insert(code: string, opts: {
     min: 1|3|5|15|10|30|60|240
     from: string
     to?: string
   }): Promise<number> {
+    const {min, from, to} = opts
     const table = this.convertCodeName(code)
-    const to = opts.to? format(new Date(opts.to), 'isoDateTime') + '+00:00' : opts.to
-    const from = new Date(opts.from).getTime()
     let count = 0
-    let res: Iu.CandleMinuteType[]
-    do {
-      let res = (await getCandlesMinutes(api, opts.min, {
-        market: code,
-        count: 200,
-        to,
-      })).data
-      const d = new Date(res[res.length - 1].candle_date_time_utc).getTime()
-      if(d < from) {
-        res = res.filter(c => {
-          const d = new Date(res[res.length - 1].candle_date_time_utc).getTime()
-          return d >= from
-        })
-      }
+    for await (let cs of this.api.chunkCandlesMinutes(min, {
+      market: code,
+      from,
+      to,
+    })) {
       await this.db.run(`INSERT INTO ${table} VALUES ` + 
-        res.map(tr => this.toDbValues(tr)).join(','))
-      count += res.length
-    } while(res.length === 200)
+        cs.map(c => this.toDbValues(c)).join(','))
+      count += cs.length
+    }
     return count
   }
 

@@ -49,7 +49,6 @@ async function getTradesTicks(api: UPbit, opts: {
   return trs
 }
 
-
 test.serial('getTradesTicks()', async t => {
   const trs = (await getTradesTicks(api, {
     market: 'KRW-BTC',
@@ -80,7 +79,7 @@ test.serial('TradeDb#ready(): error', async t => {
 
 test.serial('TradeDb#ready()', async t => {
   const db = new TradeDb(join(__dirname, 'test.db'))
-  const already = await db.ready(api, codes, {
+  const already = await db.ready(codes, {
     daysAgo: 0,
     to: '00:03:00',
   })
@@ -102,7 +101,7 @@ test.serial('TradeDb#count()', async t => {
 
 test.serial('TradeDb#get()', async t => {
   const db = new TradeDb(join(__dirname, 'test.db'))
-  await db.ready(api, codes, {
+  await db.ready(codes, {
     daysAgo: 0,
     to: '00:03:00',
   })
@@ -155,7 +154,7 @@ test.serial('TradeDb#each() long', async t => {
   t.timeout(1000000)
   // await removeSync(join(__dirname, 'test-long.db'))
   const db = new TradeDb(join(__dirname, 'test-long.db'))
-  await db.ready(api, ['KRW-BTC'], {
+  await db.ready(['KRW-BTC'], {
     daysAgo: 1,
     to: '00:00:10',
   })

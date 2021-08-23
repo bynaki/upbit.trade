@@ -21,8 +21,6 @@ import {
 } from 'fs-extra'
 
 
-const config = getConfig('./config.json')
-
 
 class TestTradeBot extends BaseSocketBot {
   public pre: I.TradeType = null
@@ -156,9 +154,8 @@ test.before(() => {
 })
 
 test.serial('UPbitTradeMock', async t => {
-  const api = new UPbit(config.upbit_keys)
   const db = new TradeDb(join(__dirname, 'mock-test.db'))
-  await db.ready(api, codes, {
+  await db.ready(codes, {
     daysAgo: 0,
     to: '00:00:10',
   })
@@ -178,9 +175,8 @@ test.serial('UPbitTradeMock', async t => {
 })
 
 test.serial('OrderMarketMock', async t => {
-  const api = new UPbit(config.upbit_keys)
   const db = new TradeDb(join(__dirname, 'mock-test.db'))
-  await db.ready(api, codes, {
+  await db.ready(codes, {
     daysAgo: 0,
     to: '00:00:10',
   })

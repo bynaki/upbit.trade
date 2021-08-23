@@ -12,9 +12,6 @@ import {
 import {
   format,
 } from 'fecha'
-import {
-  getCandlesMinutes,
-} from '../src/database'
 
 
 
