@@ -264,17 +264,17 @@ export class CandleDb extends BaseDb {
     to?: string
   }): Promise<boolean> {
     const already = await super.ready(codes, `
-      market: TEXT,
-      candle_date_time_utc: TEXT,
-      candle_date_time_kst: TEXT,
-      opening_price: INTEGER,
-      high_price: INTEGER,
-      low_price: INTEGER,
-      trade_price: INTEGER,
-      timestamp: INTEGER,
-      candle_acc_trade_price: TEXT,
-      candle_acc_trade_volume: TEXT,
-      unit: INTEGER
+      market TEXT,
+      candle_date_time_utc TEXT,
+      candle_date_time_kst TEXT,
+      opening_price INTEGER,
+      high_price INTEGER,
+      low_price INTEGER,
+      trade_price INTEGER,
+      timestamp INTEGER PRIMARY KEY,
+      candle_acc_trade_price TEXT,
+      candle_acc_trade_volume TEXT,
+      unit INTEGER
     `)
     if(already) {
       return true
@@ -323,7 +323,7 @@ export class CandleDb extends BaseDb {
 
   async get(code: string, offset: number, length: number): Promise<Iu.CandleMinuteType[]> {
     const sql = `SELECT * FROM ${this.convertCodeName(code)}
-      ORDER BY sequential_id ASC
+      ORDER BY timestamp ASC
       LIMIT ${length} OFFSET ${offset}`
     return (await this.db.all(sql)).map(d => this.toNativeValues(d))
   }
