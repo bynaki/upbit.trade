@@ -2,11 +2,6 @@ import test, {
   ExecutionContext,
 } from 'ava'
 import {
-  UPbit,
-  upbit_types as Iu,
-} from 'cryptocurrency.api'
-import {
-  getConfig,
   BaseSocketBot,
   types as I,
   TradeDb,
@@ -88,7 +83,6 @@ class TestOrderBot extends BaseSocketBot {
   }
 
   async start() {
-    
     this.order = new OrderMarketMock(this)
   }
 
@@ -98,7 +92,7 @@ class TestOrderBot extends BaseSocketBot {
 
   async onTrade(tr: I.TradeType) {
     if(!await this.order.updateStatus()) {
-      const status = await this.order.bid({market: this.code, price: 10000})
+      const status = await this.order.bid(10000)
       console.log(status)
       this.t.is(status.side, 'bid')
       this.t.is(status.ord_type, 'price')

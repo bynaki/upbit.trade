@@ -55,7 +55,7 @@
   },
   "ava": {
     "files": [
-      "dist.test/test/database.spec.js"
+      "dist.test/test/order.spec.js"
     ]
   }
 }

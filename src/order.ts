@@ -32,6 +32,9 @@ import {
   BaseSocketBot
 } from './base.bot'
 import { v4 as uuidv4 } from 'uuid'
+import {
+  api
+} from './utils'
 
 
 abstract class BaseOrder {
@@ -39,7 +42,7 @@ abstract class BaseOrder {
   protected _canceling = false
   protected _isTerminated = false
 
-  constructor(protected readonly api: UPbit) {
+  constructor(public readonly market: string) {
     this._history = {
       bid: [],
       ask: [],
@@ -100,7 +103,7 @@ abstract class BaseOrder {
     if(!this.statusBid) {
       return null
     }
-    this.updateHistory((await this.api.getOrderDetail({uuid: this.statusBid.uuid})).data)
+    this.updateHistory((await api.getOrderDetail({uuid: this.statusBid.uuid})).data)
     return this.statusBid as Iu.OrderDetailType
   }
 
@@ -108,7 +111,7 @@ abstract class BaseOrder {
     if(!this.statusAsk) {
       return null
     }
-    this.updateHistory((await this.api.getOrderDetail({uuid: this.statusAsk.uuid})).data)
+    this.updateHistory((await api.getOrderDetail({uuid: this.statusAsk.uuid})).data)
     return this.statusAsk as Iu.OrderDetailType
   }
 
@@ -148,7 +151,7 @@ abstract class BaseOrder {
     }
     this._canceling = true
     try {
-      const res = (await this.api.cancel({
+      const res = (await api.cancel({
         uuid: this.status.uuid
       })).data
       this.updateHistory(res)
@@ -172,7 +175,7 @@ abstract class BaseOrder {
     }
     this._canceling = true
     try {
-      const res = (await this.api.cancel({
+      const res = (await api.cancel({
         uuid: this.status.uuid
       })).data
       this.updateHistory(res)
@@ -187,7 +190,7 @@ abstract class BaseOrder {
   }
 
   protected async suitedBidVol(market: string, volume: number): Promise<number> {
-    const chance = (await this.api.getOrdersChance({market})).data
+    const chance = (await api.getOrdersChance({market})).data
     const min = chance.market.bid.min_total
     const balance = chance.bid_account.balance
     volume = Math.max(volume, min)
@@ -196,7 +199,7 @@ abstract class BaseOrder {
   }
 
   protected async suitedAskVol(market: string, price: number, volume: number): Promise<number> {
-    const chance = (await this.api.getOrdersChance({market})).data
+    const chance = (await api.getOrdersChance({market})).data
     const balance = chance.ask_account.balance
     let suit = Math.min(volume, balance)
     if((balance - suit) < (chance.market.ask.min_total / price)) {
@@ -259,35 +262,39 @@ abstract class BaseOrder {
 
 
 
+/**
+ * 지정가 주문
+ */
 export class Order extends BaseOrder {
-  constructor(api: UPbit) {
-    super(api)
+  /**
+   * 생성자
+   * @param market 마켓 코드
+   */
+  constructor(market: string) {
+    super(market)
   }
 
   /**
    * 지정가 매수
-   * params: {market: 마켓 코드, price: 주문할 가격, volume: 주문량이 아니라 주문할 금액이다. 예를 들어 'KRW-BTC'이고 '10000'이라면 '10000KRW' 금액으로 주문한다.} params
-   * @param
-   * @returns
+   * @param price 주문할 가격.
+   * @param volume 주문량이 아니라 주문할 금액이다. 예를 들어 'KRW-BTC'이고 '10000'이라면 '10000KRW' 금액으로 주문한다.
+   * @param err error 콜백
+   * @returns 
    */
-  async bid(params: {
-    market: string
-    price: number
-    volume: number
-  }, err?: (err) => void): Promise<Iu.OrderType> {
+  async bid(price: number, volume: number, err?: (err) => void): Promise<Iu.OrderType> {
     const status = await this.updateStatus()
     if(!status || (status.side === 'bid' && status.ord_type === 'limit' && status.state === 'cancel')) {
       try {
-        const price = floorOrderbook(params.price)
-        const volume = await this.suitedBidVol(params.market, params.volume)
+        const pp = floorOrderbook(price)
+        const vol = await this.suitedBidVol(this.market, volume)
         const orderParams: Iu.OrderLimitParam = {
-          market: params.market,
+          market: this.market,
           side: 'bid',
           ord_type: 'limit',
-          price,
-          volume: ceil(volume / price, 8),
+          price: pp,
+          volume: ceil(vol / price, 8),
         }
-        this.updateHistory((await this.api.order(orderParams)).data)
+        this.updateHistory((await api.order(orderParams)).data)
         this._canceling = false
         return this.statusBid
       } catch(e) {
@@ -298,9 +305,13 @@ export class Order extends BaseOrder {
     }
   }
 
-  async ask(params: {
-    price: number
-  }, err?: (err) => void) {
+  /**
+   * 지정가 매도
+   * @param price 매도 가격
+   * @param err error 콜백
+   * @returns 
+   */
+  async ask(price: number, err?: (err) => void) {
     const status = await this.updateStatus()
     if(!status) {
       return null
@@ -309,16 +320,16 @@ export class Order extends BaseOrder {
     || (status.side === 'bid' && status.ord_type === 'price' && status.state === 'cancel')
     || (status.side === 'ask' && status.state === 'cancel')) {
       try {
-        const price = floorOrderbook(params.price)
-        const volume = await this.suitedAskVol(status.market, price, this.statusBid.executed_volume)
+        const pp = floorOrderbook(price)
+        const volume = await this.suitedAskVol(status.market, pp, this.statusBid.executed_volume)
         const orderParams: Iu.OrderLimitParam = {
           market: status.market,
           side: 'ask',
           ord_type: 'limit',
-          price: price,
+          price: pp,
           volume,
         }
-        this.updateHistory((await this.api.order(orderParams)).data)
+        this.updateHistory((await api.order(orderParams)).data)
         this._canceling = false
         return this.statusAsk
       } catch(e) {
@@ -331,33 +342,36 @@ export class Order extends BaseOrder {
 }
 
 
-
+/**
+ * 시장가 주문
+ */
 export class OrderMarket extends BaseOrder {
-  constructor(api: UPbit) {
-    super(api)
+  /** 
+   * 생성자
+   * @param market 마켓코드
+   */
+  constructor(market: string) {
+    super(market)
   }
 
   /**
    * 시장가 매수
-   * params: {market: 마켓코드, price: 이 가격에 매수가 아니라 이 양만큼 매수 한다. 10000이라면 10000KRW 이다. }
-   * @param params 
+   * @param price 이 가격에 매수가 아니라 이 양만큼 매수 한다. 10000이라면 10000KRW 이다.
+   * @param err error 콜백
    * @returns 
    */
-  async bid(params: {
-    market: string
-    price: number
-  }, err?: (err) => void): Promise<Iu.OrderType> {
+  async bid(price: number, err?: (err) => void): Promise<Iu.OrderType> {
     const status = await this.updateStatus()
     if(!status || (status.side === 'bid' && status.state === 'cancel')) {
       try {
-        const price = await this.suitedBidVol(params.market, params.price)
+        const pp = await this.suitedBidVol(this.market, price)
         const orderParams: Iu.OrderPriceParam = {
-          market: params.market,
+          market: this.market,
           side: 'bid',
           ord_type: 'price',
-          price,
+          price: pp,
         }
-        this.updateHistory((await this.api.order(orderParams)).data)
+        this.updateHistory((await api.order(orderParams)).data)
         this._canceling = false
         return this.statusBid
       } catch(e) {
@@ -368,6 +382,11 @@ export class OrderMarket extends BaseOrder {
     }
   }
 
+  /**
+   * 시장가 매도
+   * @param err error 콜백
+   * @returns 
+   */
   async ask(err?: (err) => void): Promise<Iu.OrderType> {
     const status = await this.updateStatus()
     if(!status) {
@@ -377,7 +396,7 @@ export class OrderMarket extends BaseOrder {
     || (status.side === 'bid' && status.ord_type === 'price' && status.state === 'cancel')
     || (status.side === 'ask' && status.state === 'cancel')) {
       try {
-        const price = (await this.api.getOrderbook({markets: [status.market]})).data[0].orderbook_units[0].bid_price
+        const price = (await api.getOrderbook({markets: [status.market]})).data[0].orderbook_units[0].bid_price
         const volume = await this.suitedAskVol(status.market, price, this.statusBid.executed_volume)
         const params: Iu.OrderMarketParam = {
           market: status.market,
@@ -385,7 +404,7 @@ export class OrderMarket extends BaseOrder {
           ord_type: 'market',
           volume,
         }
-        this.updateHistory((await this.api.order(params)).data)
+        this.updateHistory((await api.order(params)).data)
         this._canceling = false
         return this.statusAsk
       } catch(e) {
@@ -438,10 +457,16 @@ export class OrderHistory<B> {
 }
 
 
-
+/**
+ * 시장가 주문 Mock
+ */
 export class OrderMarketMock extends BaseOrder {
+  /**
+   * 생성자
+   * @param bot 
+   */
   constructor(private readonly bot: BaseSocketBot) {
-    super(null)
+    super(bot.code)
   }
 
   async updateStatus(): Promise<Iu.OrderDetailType> {
@@ -456,6 +481,10 @@ export class OrderMarketMock extends BaseOrder {
     return this.statusAsk
   }
 
+  /**
+   * 주문 취소
+   * @returns 
+   */
   cancel() {
     return this.updateStatus()
   }
@@ -465,19 +494,15 @@ export class OrderMarketMock extends BaseOrder {
 
   /**
    * 시장가 매수
-   * params: {market: 마켓코드, price: 이 가격에 매수가 아니라 이 양만큼 매수 한다. 10000이라면 10000KRW 이다. }
-   * @param params 
+   * @param price 이 가격에 매수가 아니라 이 양만큼 매수 한다. 10000이라면 10000KRW 이다.
+   * @param err error 콜백
    * @returns 
    */
-  async bid(params: {
-    market: string
-    price: number
-  }, err?: (err) => void): Promise<Iu.OrderType> {
+  async bid(price: number, err?: (err) => void): Promise<Iu.OrderType> {
     const status = await this.updateStatus()
     if(!status || (status.side === 'bid' && status.state === 'cancel')) {
       try {
         const tr = this.bot.latest(I.ReqType.Trade)
-        const price = params.price
         const volume = price / tr.trade_price
         const uuid = uuidv4()
         const status1: Iu.OrderType = {
@@ -486,14 +511,14 @@ export class OrderMarketMock extends BaseOrder {
           ord_type: 'price',
           price: price,
           state: 'wait',
-          market: params.market,
+          market: this.market,
           created_at: format(new Date(tr.timestamp), 'isoDateTime'),
           volume: null,
           remaining_volume: null,
-          reserved_fee: floor(params.price * 0.0005, 8),
-          remaining_fee: floor(params.price * 0.0005, 8),
+          reserved_fee: floor(price * 0.0005, 8),
+          remaining_fee: floor(price * 0.0005, 8),
           paid_fee: 0,
-          locked: floor(params.price + (params.price * 0.0005), 8),
+          locked: floor(price + (price * 0.0005), 8),
           executed_volume: 0,
           trades_count: 0,
         }
@@ -503,7 +528,7 @@ export class OrderMarketMock extends BaseOrder {
           ord_type: 'price',
           price: price,
           state: 'cancel',
-          market: params.market,
+          market: this.market,
           created_at: format(new Date(tr.timestamp), 'isoDateTime'),
           volume: null,
           remaining_volume: null,
@@ -515,7 +540,7 @@ export class OrderMarketMock extends BaseOrder {
           trades_count: 1,
           trades: [
             {
-              market: params.market,
+              market: this.market,
               uuid: uuidv4(),
               price: tr.trade_price,
               volume: floor(volume, 8),
@@ -536,6 +561,11 @@ export class OrderMarketMock extends BaseOrder {
     }
   }
 
+  /**
+   * 시장가 매도
+   * @param err error 콜백
+   * @returns 
+   */
   async ask(err?: (err) => void): Promise<Iu.OrderType> {
     const status = await this.updateStatus()
     if(!status) {

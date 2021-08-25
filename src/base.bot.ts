@@ -11,6 +11,7 @@ import {
 } from './utils'
 
 
+
 export abstract class BaseSocketBot extends Logger {
   protected _queue: {
     trade: I.ResType[]
@@ -30,6 +31,7 @@ export abstract class BaseSocketBot extends Logger {
     orderbook: null,
     ticker: null,
   }
+  private socket: BaseUPbitSocket = null
 
   constructor(public readonly code: string) {
     super(code)
@@ -91,7 +93,15 @@ export abstract class BaseSocketBot extends Logger {
     return Object.assign({}, this._latests[type])
   }
 
-  _start<S extends BaseUPbitSocket>(socket?: S): Promise<void> {
+  newOrder() {
+    return this.socket.newOrder(this)
+  }
+  newOrderMarket() {
+    return this.socket.newOrderMarket(this)
+  }
+
+  _start<S extends BaseUPbitSocket>(socket: S): Promise<void> {
+    this.socket = socket
     if(this.start) {
       return this.start(socket)
     }
@@ -103,7 +113,7 @@ export abstract class BaseSocketBot extends Logger {
     }
   }
 
-  abstract start<S extends BaseUPbitSocket>(socket?: S): Promise<void>
+  abstract start<S extends BaseUPbitSocket>(socket: S): Promise<void>
   abstract finish(): Promise<void>
   abstract onTrade(data: I.TradeType): Promise<boolean|void>
   abstract onOrderbook(data: I.OrderbookType): Promise<boolean|void>
@@ -173,7 +183,7 @@ export abstract class BaseCandleBot extends BaseSocketBot {
         this._ohlcMaker = new OHLCMaker(limit)
       }
     }
-    return super._start()
+    return super._start(socket)
   }
 
   async onTrade(tr: I.TradeType): Promise<boolean|void> {

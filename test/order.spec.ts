@@ -6,30 +6,23 @@ import {
   UPbit,
   OrderMarket,
   OrderHistory,
+  api,
 } from '../src'
 import {
   stop,
 } from 'fourdollar'
 import { RequestError } from 'cryptocurrency.api'
-import { times } from 'lodash'
-import { stat } from 'fs-extra'
 
 /**
  * 지정가 매수매도
  * -- 실제로 거래됨 주의 --
  */
-if(false) {
-  const config = getConfig('./config.json')
-  const api = new UPbit(config.upbit_keys)
-  const order = new Order(api)
+if(true) {
+  const order = new Order('KRW-BTC')
 
   test.serial('order > #bid(): low price', async t => {
     const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
-    const res = await order.bid({
-      market: 'KRW-BTC',
-      price: trade.trade_price * 0.9,
-      volume: 5000,
-    })
+    const res = await order.bid(trade.trade_price * 0.9, 5000)
     console.log(res)
     t.is(res.side, 'bid')
     t.is(res.state, 'wait')
@@ -53,11 +46,7 @@ if(false) {
 
   test.serial('order > #bid(): low price again', async t => {
     const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
-    const res = await order.bid({
-      market: 'KRW-BTC',
-      price: trade.trade_price * 0.9,
-      volume: 5000,
-    })
+    const res = await order.bid(trade.trade_price * 0.9, 5000)
     t.is(res.side, 'bid')
     t.is(res.state, 'wait')
   })
@@ -70,11 +59,7 @@ if(false) {
 
   test.serial('order > #bid()', async t => {
     const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
-    const res = await order.bid({
-      market: 'KRW-BTC',
-      price: trade.trade_price,
-      volume: 5000,
-    })
+    const res = await order.bid(trade.trade_price, 5000)
     console.log(res)
     t.pass()
   })
@@ -94,7 +79,7 @@ if(false) {
 
   test.serial('order > #ask(): high price', async t => {
     const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
-    const res = await order.ask({price: trade.trade_price * 1.1})
+    const res = await order.ask(trade.trade_price * 1.1)
     console.log(res)
     t.is(res.side, 'ask')
     t.is(res.state, 'wait')
@@ -119,7 +104,7 @@ if(false) {
 
   test.serial('order > #ask(): high price again', async t => {
     const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
-    const res = await order.ask({price: trade.trade_price * 1.1})
+    const res = await order.ask(trade.trade_price * 1.1)
     console.log(res)
     t.is(res.side, 'ask')
     t.is(res.state, 'wait')
@@ -132,7 +117,7 @@ if(false) {
   })
 
   test.serial('order > #ask()', async t => {
-    const res = await order.ask({price: order.statusBid.price})
+    const res = await order.ask(order.statusBid.price)
     console.log(res)
     t.is(res.side, 'ask')
     t.is(res.state, 'wait')
@@ -247,18 +232,13 @@ if(false) {
  * 사장가 매수매도
  * -- 실제로 거래됨 주의 --
  */
-if(true) {
-  const config = getConfig('./config.json')
-  const api = new UPbit(config.upbit_keys)
-  const order = new OrderMarket(api)
+if(false) {
+  const order = new OrderMarket('KRW-BTC')
   let statusBid = null
   let statusAsk = null
   
   test.serial('order market > #bid()', async t => {
-    const res = await order.bid({
-      market: 'KRW-BTC',
-      price: 10000,
-    })
+    const res = await order.bid(10000)
     order.wait(null, status => statusBid = status)
     console.log(res)
     t.is(res.state, 'wait')

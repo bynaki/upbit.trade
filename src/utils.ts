@@ -159,3 +159,5 @@ export class OHLCMaker {
     }
   }
 }
+
+export const api = new UPbit(getConfig('./config.json').upbit_keys)

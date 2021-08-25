@@ -9,12 +9,16 @@ import {
   // FileWriter,
 } from 'fourdollar'
 import {
-  UPbit,
   upbit_types as Iu,
 } from 'cryptocurrency.api'
 import {
   TradeDb,
 } from './database'
+import {
+  Order,
+  OrderMarket,
+  OrderMarketMock,
+} from './order'
 
 
 class BotManager {
@@ -120,25 +124,6 @@ export abstract class BaseUPbitSocket extends Logger {
     this._botManager = new BotManager(this._codes)
   }
 
-  protected async start(): Promise<boolean> {
-    for(const bot of this.getBots()) {
-      await bot._start(this)
-    }
-    this._isStarted = true
-    return true
-  }
-
-  protected async finish(): Promise<boolean> {
-    if(!this._isStarted) {
-      return false
-    }
-    for(const bot of this.getBots()) {
-      await bot._finish()
-    }
-    this._isStarted = false
-    return true
-  }
-
   get codes() {
     return this._codes
   }
@@ -158,8 +143,35 @@ export abstract class BaseUPbitSocket extends Logger {
     return this._botManager.addBot(bot)
   }
 
+  newOrder(bot: BaseSocketBot) {
+    return new Order(bot.code)
+  }
+
+  newOrderMarket(bot: BaseSocketBot) {
+    return new OrderMarket(bot.code)
+  }
+
   protected getCodes(req: I.ReqType): string[] {
     return this._botManager.getCodes(req)
+  }
+
+  protected async start(): Promise<boolean> {
+    for(const bot of this.getBots()) {
+      await bot._start(this)
+    }
+    this._isStarted = true
+    return true
+  }
+
+  protected async finish(): Promise<boolean> {
+    if(!this._isStarted) {
+      return false
+    }
+    for(const bot of this.getBots()) {
+      await bot._finish()
+    }
+    this._isStarted = false
+    return true
   }
 
   abstract open(): Promise<void>
@@ -286,6 +298,12 @@ export class UPbitTradeMock extends BaseUPbitSocket {
   async close(): Promise<boolean> {
     return
   }
+
+  newOrderMarket(bot: BaseSocketBot) {
+    return new OrderMarketMock(bot)
+  }
+
+  newOrder = null
 
   private convertTradeType(tr: Iu.TradeTickType): I.TradeType {
     return {
