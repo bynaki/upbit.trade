@@ -5,14 +5,14 @@ import {
   BaseSocketBot,
   types as I,
   TradeDb,
+  OrderMarket,
   UPbitTradeMock,
-  OrderMarketMock,
 } from '../src'
 import {
   join,
 } from 'path'
 import {
-  remove,
+  removeSync,
 } from 'fs-extra'
 
 
@@ -76,14 +76,16 @@ class TestTradeBot extends BaseSocketBot {
 
 
 class TestOrderBot extends BaseSocketBot {
-  private order: OrderMarketMock
+  private order: OrderMarket
 
   constructor(code: string, private readonly t: ExecutionContext) {
     super(code)
   }
 
   async start() {
-    this.order = new OrderMarketMock(this)
+    this.order = this.newOrderMarket()
+    const error = this.t.throws(() => this.newOrder())
+    this.t.is(error.message, "'UPbitTradeMock' 모드에서는 'newOrder()'를 지원하지 않는다.")
   }
 
   async finish() {
@@ -139,12 +141,12 @@ class TestOrderBot extends BaseSocketBot {
 const codes = [
   "KRW-BTC",
   "KRW-ETH",
-  "KRW-NEO",
-  "KRW-MTL",
+  // "KRW-NEO",
+  // "KRW-MTL",
 ]
 
 test.before(() => {
-  remove(join(__dirname, 'mock-test.db'))
+  removeSync(join(__dirname, 'mock-test.db'))
 })
 
 test.serial('UPbitTradeMock', async t => {

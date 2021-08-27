@@ -17,7 +17,8 @@ import {
 import {
   Order,
   OrderMarket,
-  OrderMarketMock,
+  AbstractOrderMarket,
+  AbstractOrder,
 } from './order'
 
 
@@ -143,11 +144,11 @@ export abstract class BaseUPbitSocket extends Logger {
     return this._botManager.addBot(bot)
   }
 
-  newOrder(bot: BaseSocketBot) {
+  newOrder(bot: BaseSocketBot): AbstractOrder {
     return new Order(bot.code)
   }
 
-  newOrderMarket(bot: BaseSocketBot) {
+  newOrderMarket(bot: BaseSocketBot): AbstractOrderMarket {
     return new OrderMarket(bot.code)
   }
 
@@ -156,9 +157,7 @@ export abstract class BaseUPbitSocket extends Logger {
   }
 
   protected async start(): Promise<boolean> {
-    for(const bot of this.getBots()) {
-      await bot._start(this)
-    }
+    await Promise.all(this.getBots().map(b => b._start(this)))
     this._isStarted = true
     return true
   }
@@ -167,9 +166,7 @@ export abstract class BaseUPbitSocket extends Logger {
     if(!this._isStarted) {
       return false
     }
-    for(const bot of this.getBots()) {
-      await bot._finish()
-    }
+    await Promise.all(this.getBots().map(b => b._finish()))
     this._isStarted = false
     return true
   }
@@ -273,54 +270,5 @@ export class UPbitSocket extends BaseUPbitSocket {
       return this._ws.readyState
     }
     return I.SocketState.Closed
-  }
-}
-
-
-export class UPbitTradeMock extends BaseUPbitSocket {
-  constructor(private readonly db: TradeDb) {
-    super(db.codes)
-  }
-
-  async open(): Promise<void> {
-    await this.start()
-    const codes = await this.db.getCodes()
-    for(let code of codes) {
-      const bots = this.getBots(I.ReqType.Trade, code)
-      for await (let tr of this.db.each(code)) {
-        const converted = this.convertTradeType(tr)
-        await Promise.all(bots.map(bot => bot.trigger(converted)))
-      }
-      await Promise.all(bots.map(bot => bot.finish()))
-    }
-  }
-
-  async close(): Promise<boolean> {
-    return
-  }
-
-  newOrderMarket(bot: BaseSocketBot) {
-    return new OrderMarketMock(bot)
-  }
-
-  newOrder = null
-
-  private convertTradeType(tr: Iu.TradeTickType): I.TradeType {
-    return {
-      type: I.ReqType.Trade,
-      code: tr.market,
-      trade_price: tr.trade_price,
-      trade_volume: tr.trade_volume,
-      ask_bid: tr.ask_bid,
-      prev_closing_price: tr.prev_closing_price,
-      change: '',
-      change_price: tr.change_price,
-      trade_date: tr.trade_date_utc,
-      trade_time: tr.trade_time_utc,
-      trade_timestamp: tr.timestamp,
-      timestamp: tr.timestamp,
-      sequential_id: tr.sequential_id,
-      stream_type: 'REALTIME',
-    }
   }
 }

@@ -71,19 +71,25 @@ export async function allMarketCode(
 
 export class OHLCMaker {
   private vector: I.OHLCType[] = []
-  private preTime: number = 0
+  private preTime: number = -1
 
   constructor(public readonly limit: number) {}
 
   push(tr: I.TradeType) {
+    if(this.preTime === -1) {
+      if(tr.sequential_id % tr.trade_timestamp === 0) {
+        this.preTime = 0
+      }
+    }
     const tt = Math.floor(tr.trade_timestamp / (1000 * 60)) * (1000 * 60)
-    if(this.preTime === 0) {
+    if(this.preTime === -1) {
       this.preTime = tt
       return
     }
     if(tt === this.preTime) {
       return
     }
+
     const price = tr.trade_price
     const volume = tr.trade_volume
     if(this.vector.length == 0) {

@@ -8,8 +8,8 @@ import {
   types as I,
   BaseCandleBot,
   addCandleListener,
-  UPbit,
-  getConfig,
+  UPbitTradeMock,
+  TradeDb,
 } from '../src'
 import $4 from 'fourdollar'
 import {
@@ -19,8 +19,9 @@ import {
   readFile,
 } from 'fs/promises'
 import {
-  remove,
+  remove, removeSync,
 } from 'fs-extra'
+import { assign } from 'lodash'
 
 
 class TestBot extends BaseSocketBot {
@@ -350,19 +351,6 @@ class TestLogBot extends BaseSocketBot {
 }
 
 
-class TestCandleBot extends BaseCandleBot {
-  constructor(code: string, t: CbExecutionContext) {
-    super(code)
-  }
-  
-  @addCandleListener(1, 10)
-  onCandle1m(ohlcs: I.OHLCType[]) {
-    console.log(ohlcs[0])
-  }
-
-  start = null
-  finish = null
-}
 
 
 test.cb.skip('websocket > trade', t => {
@@ -698,52 +686,60 @@ test.serial.cb('TestLatestBot', t => {
 })
 
 
-test.serial.cb('TestCandleBot', t => {
-  t.timeout(200000)
-  const us = new UPbitSocket(['KRW-BTC'])
-  us.addBot(new TestCandleBot('KRW-BTC', t))
-  us.open()
+
+class TestCandleBot extends BaseCandleBot {
+  ohlcs: I.OHLCType[] = []
+
+  constructor(code: string) {
+    super(code)
+  }
+  
+  @addCandleListener(1, 10)
+  onCandle1m(ohlcs: I.OHLCType[]) {
+    this.ohlcs = ohlcs
+  }
+
+  start = null
+
+  finish(): Promise<void> {
+    console.log(this.ohlcs)
+    return
+  }
+}
+
+test.before(() => {
+  removeSync(join(__dirname, 'candle-bot.db'))
 })
 
-const api = new UPbit(getConfig('./config.json').upbit_keys)
+test.serial.only('TestCandleBot', async t => {
+  t.timeout(200000)
+  const db = new TradeDb(join(__dirname, 'candle-bot.db'))
+  await db.ready(['KRW-BTC'], {
+    daysAgo: 0,
+    to: '00:02:00',
+  })
+  const us = new UPbitTradeMock(db)
+  const bot = new TestCandleBot('KRW-BTC')
+  us.addBot(bot)
+  await us.open()
+  console.log(bot.ohlcs)
+  t.pass()
+})
 
-// test.serial.only('UPbitTradMock#getTradesTicksLoop()', async t => {
-//   const us = new UPbitTradeMock('KRW-BTC', api)
-//   let next = us.nextTime('00:00:00', 5)
-//   const res1 = await us.getTradesTicksLoop({
-//     daysAgo: 7,
-//     to: next
-//   })
-//   next = us.nextTime(next, 5)
-//   const res2 = await us.getTradesTicksLoop({
-//     daysAgo: 7,
-//     to: next,
-//     baseId: res1[res1.length - 1].sequential_id
-//   })
-//   next = us.nextTime(next, 5)
-//   const res3 = await us.getTradesTicksLoop({
-//     daysAgo: 7,
-//     to: next,
-//     baseId: res2[res2.length - 1].sequential_id
-//   })
-//   const combined: TradeTickType[] = []
-//   combined.push(...res1, ...res2, ...res3)
-//   console.log(`res1 len: ${res1.length}, res2 len: ${res2.length}, res3 len: ${res3.length}, length: ${combined.length}`)
-//   combined.reduce((p, tr) => {
-//     if(!p) {
-//       return tr
-//     }
-//     t.true(p.sequential_id < tr.sequential_id)
-//     return tr
-//   }, null)
-// })
 
-// test.serial.only('UPbitTradeMock: nextTime()', t => {
-//   const us = new UPbitTradeMock('KRW-BTC', api)
-//   t.is(us.nextTime('00:00:00', 5), '00:05:00')
-//   t.is(us.nextTime('09:59:00', 3), '10:02:00')
-//   t.is(us.nextTime('23:58:00', 3), '00:01:00')
-//   t.is(us.nextTime('23:58:00', 2), '00:00:00')
-// })
+test.serial.only('TestCandleBot again', async t => {
+  const db = new TradeDb(join(__dirname, 'candle-bot.db'))
+  await db.ready(['KRW-BTC'], {
+    daysAgo: 0,
+    to: '00:02:00',
+  })
+  const us = new UPbitTradeMock(db)
+  const bot = new TestCandleBot('KRW-BTC')
+  us.addBot(bot)
+  await us.open()
+  console.log(bot.ohlcs)
+  t.pass()
+})
+
 
 test.after(() => remove(join(__dirname, 'log')))

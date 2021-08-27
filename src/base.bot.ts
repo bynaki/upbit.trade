@@ -9,6 +9,10 @@ import {
 import {
   OHLCMaker,
 } from './utils'
+import {
+  AbstractOrder,
+  AbstractOrderMarket,
+} from './order'
 
 
 
@@ -93,10 +97,10 @@ export abstract class BaseSocketBot extends Logger {
     return Object.assign({}, this._latests[type])
   }
 
-  newOrder() {
+  newOrder(): AbstractOrder {
     return this.socket.newOrder(this)
   }
-  newOrderMarket() {
+  newOrderMarket(): AbstractOrderMarket {
     return this.socket.newOrderMarket(this)
   }
 
@@ -124,7 +128,7 @@ export abstract class BaseSocketBot extends Logger {
 const listeners: {
   [key: string]: {
     [key: string]: {
-      callback: (...data) => void
+      callback: string
       args: any
     }[]
   }
@@ -157,9 +161,7 @@ type DecoCandleListenerType = {
 
 export const addCandleListener: DecoCandleListenerType = (minutes: number, limit: number) => {
   return (target: BaseCandleBot, property: string, descriptor: PropertyDescriptor) => {
-    addEventListener(target, I.EventType.Candle, (...data) => {
-      return descriptor.value.call(target, ...data)
-    }, {
+    addEventListener(target, I.EventType.Candle, property, {
       minutes,
       limit,
     })
@@ -193,7 +195,7 @@ export abstract class BaseCandleBot extends BaseSocketBot {
       for(let i = 0; i < candleListeners.length; i++) {
         const os = this._ohlcMaker.as(candleListeners[i].args.minutes)
         if(os.length !== 0) {
-          await candleListeners[i].callback(os)
+          await this[candleListeners[i].callback](os)
         }
       }
     }

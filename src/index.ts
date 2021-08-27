@@ -8,6 +8,7 @@ export * from './order'
 export * from './utils'
 export * from './database'
 export * from './upbit.sequence'
+export * from './mock'
 export {
   upbit_types,
   UPbit,

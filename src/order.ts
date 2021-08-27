@@ -1,5 +1,4 @@
 import {
-  UPbit,
   upbit_types as Iu,
 } from 'cryptocurrency.api'
 import {
@@ -8,7 +7,6 @@ import {
 import {
   ceil,
   floorOrderbook,
-  floor,
 } from './utils'
 import {
   ensureDirSync,
@@ -28,10 +26,6 @@ import {
 import {
   isEqual,
 } from 'lodash'
-import {
-  BaseSocketBot
-} from './base.bot'
-import { v4 as uuidv4 } from 'uuid'
 import {
   api
 } from './utils'
@@ -255,9 +249,18 @@ abstract class BaseOrder {
       }
     }
   }
+}
 
-  abstract bid(...args: any[]): Promise<Iu.OrderType>
-  abstract ask(...args: any[]): Promise<Iu.OrderType>
+
+
+export abstract class AbstractOrder extends BaseOrder {
+  abstract bid(price: number, volume: number, err?: (err) => void): Promise<Iu.OrderType>
+  abstract ask(price: number, err?: (err) => void)
+}
+
+export abstract class AbstractOrderMarket extends BaseOrder {
+  abstract bid(price: number, err?: (err) => void): Promise<Iu.OrderType>
+  abstract ask(err?: (err) => void): Promise<Iu.OrderType>
 }
 
 
@@ -265,7 +268,7 @@ abstract class BaseOrder {
 /**
  * 지정가 주문
  */
-export class Order extends BaseOrder {
+export class Order extends AbstractOrder {
   /**
    * 생성자
    * @param market 마켓 코드
@@ -345,7 +348,7 @@ export class Order extends BaseOrder {
 /**
  * 시장가 주문
  */
-export class OrderMarket extends BaseOrder {
+export class OrderMarket extends AbstractOrderMarket {
   /** 
    * 생성자
    * @param market 마켓코드
@@ -454,201 +457,4 @@ export class OrderHistory<B> {
     splited.splice(0, 1)
     return splited.map(h => JSON.parse(h))
   }
-}
-
-
-/**
- * 시장가 주문 Mock
- */
-export class OrderMarketMock extends BaseOrder {
-  /**
-   * 생성자
-   * @param bot 
-   */
-  constructor(private readonly bot: BaseSocketBot) {
-    super(bot.code)
-  }
-
-  async updateStatus(): Promise<Iu.OrderDetailType> {
-    return await this.updateStatusAsk() || await this.updateStatusBid()
-  }
-
-  async updateStatusBid(): Promise<Iu.OrderDetailType> {
-    return this.statusBid
-  }
-
-  async updateStatusAsk(): Promise<Iu.OrderDetailType> {
-    return this.statusAsk
-  }
-
-  /**
-   * 주문 취소
-   * @returns 
-   */
-  cancel() {
-    return this.updateStatus()
-  }
-  
-  wait = null
-  cancelWaiting = null
-
-  /**
-   * 시장가 매수
-   * @param price 이 가격에 매수가 아니라 이 양만큼 매수 한다. 10000이라면 10000KRW 이다.
-   * @param err error 콜백
-   * @returns 
-   */
-  async bid(price: number, err?: (err) => void): Promise<Iu.OrderType> {
-    const status = await this.updateStatus()
-    if(!status || (status.side === 'bid' && status.state === 'cancel')) {
-      try {
-        const tr = this.bot.latest(I.ReqType.Trade)
-        const volume = price / tr.trade_price
-        const uuid = uuidv4()
-        const status1: Iu.OrderType = {
-          uuid,
-          side: 'bid',
-          ord_type: 'price',
-          price: price,
-          state: 'wait',
-          market: this.market,
-          created_at: format(new Date(tr.timestamp), 'isoDateTime'),
-          volume: null,
-          remaining_volume: null,
-          reserved_fee: floor(price * 0.0005, 8),
-          remaining_fee: floor(price * 0.0005, 8),
-          paid_fee: 0,
-          locked: floor(price + (price * 0.0005), 8),
-          executed_volume: 0,
-          trades_count: 0,
-        }
-        const status2: Iu.OrderDetailType = {
-          uuid,
-          side: 'bid',
-          ord_type: 'price',
-          price: price,
-          state: 'cancel',
-          market: this.market,
-          created_at: format(new Date(tr.timestamp), 'isoDateTime'),
-          volume: null,
-          remaining_volume: null,
-          reserved_fee: floor(price * 0.0005, 8),
-          remaining_fee: 0,
-          paid_fee: floor(price * 0.0005, 8),
-          locked: 0,
-          executed_volume: floor(volume, 8),
-          trades_count: 1,
-          trades: [
-            {
-              market: this.market,
-              uuid: uuidv4(),
-              price: tr.trade_price,
-              volume: floor(volume, 8),
-              funds: floor(tr.trade_price * volume, 4),
-              created_at: format(new Date(tr.timestamp), 'isoDateTime'),
-              side: 'bid',
-            },
-          ],
-        }
-        this.updateHistory(status1)
-        this.updateHistory(status2)
-        return status1
-      } catch(e) {
-        return this.processError('bid', e, err)
-      }
-    } else {
-      return status
-    }
-  }
-
-  /**
-   * 시장가 매도
-   * @param err error 콜백
-   * @returns 
-   */
-  async ask(err?: (err) => void): Promise<Iu.OrderType> {
-    const status = await this.updateStatus()
-    if(!status) {
-      return null
-    }
-    if((status.side === 'bid' && status.state === 'done')
-    || (status.side === 'bid' && status.ord_type === 'price' && status.state === 'cancel')
-    || (status.side === 'ask' && status.state === 'cancel')) {
-      try {
-        const tr = this.bot.latest(I.ReqType.Trade)
-        const volume = status.executed_volume
-        const uuid = uuidv4()
-        const status1: Iu.OrderType = {
-          uuid,
-          side: 'ask',
-          ord_type: 'market',
-          price: null,
-          state: 'wait',
-          market: status.market,
-          created_at: format(new Date(tr.timestamp), 'isoDateTime'),
-          volume: floor(volume, 8),
-          remaining_volume: floor(volume, 8),
-          reserved_fee: 0,
-          remaining_fee: 0,
-          paid_fee: 0,
-          locked: floor(volume, 8),
-          executed_volume: 0,
-          trades_count: 0,
-        }
-        const status2: Iu.OrderDetailType = {
-          uuid,
-          side: 'ask',
-          ord_type: 'market',
-          price: null,
-          state: 'done',
-          market: status.market,
-          created_at: format(new Date(tr.timestamp), 'isoDateTime'),
-          volume: floor(volume, 8),
-          remaining_volume: 0,
-          reserved_fee: 0,
-          remaining_fee: 0,
-          paid_fee: floor(tr.trade_price * volume * 0.0005, 8),
-          locked: 0,
-          executed_volume: floor(volume, 8),
-          trades_count: 1,
-          trades: [
-            {
-              market: status.market,
-              uuid: uuidv4(),
-              price: tr.trade_price,
-              volume: floor(volume, 8),
-              funds: floor(tr.trade_price * volume, 4),
-              created_at: format(new Date(tr.timestamp), 'isoDateTime'),
-              side: 'ask',
-            },
-          ],
-        }
-        this.updateHistory(status1)
-        this.updateHistory(status2)
-        return status1
-      } catch(e) {
-        return this.processError('ask', e, err)
-      }
-    } else {
-      return status
-    }
-  }
-
-  // private async suitedBidVol(market: string, volume: number): Promise<number> {
-  //   const chance = (await this.api.getOrdersChance({market})).data
-  //   const min = chance.market.bid.min_total
-  //   if(volume < min) {
-  //     throw new OrderError(`주문금액이 최소주문금액 보다 적다. (volume: ${volume}, min: ${min})`)
-  //   }
-  //   const suit = Math.floor(volume / min) * min
-  //   return suit
-  // }
-
-  // private async suitedAskVol(market: string, price: number, volume: number): Promise<number> {
-  //   const chance = (await this.api.getOrdersChance({market})).data
-  //   const min = chance.market.ask.min_total
-  //   const minVol = floor(min / price, 8)
-  //   const suit = Math.max(volume, minVol)
-  //   return suit
-  // }
 }
