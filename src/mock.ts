@@ -1,10 +1,11 @@
 import {
-  TradeDb,
-  CandleDb,
   BaseUPbitSocket,
   BaseSocketBot,
   AbstractOrderMarket,
   types as I,
+  DbTable,
+  DbTradeTickType,
+  DbCandleMinuteType,
 } from './'
 import {
   upbit_types as Iu,
@@ -17,23 +18,23 @@ import {
   format,
 } from 'fecha'
 import { AbstractOrder } from './order'
+import {
+  toNumber,
+} from 'lodash'
 
 
 
 export class UPbitTradeMock extends BaseUPbitSocket {
-  constructor(private readonly db: TradeDb) {
+  constructor(private readonly db: DbTable<DbTradeTickType>) {
     super(db.codes)
   }
 
   async open(): Promise<void> {
     await this.start()
-    const codes = await this.db.getCodes()
-    for(let code of codes) {
-      const bots = this.getBots(I.ReqType.Trade, code)
-      for await (let tr of this.db.each(code)) {
-        const converted = this.convertTradeType(tr)
-        await Promise.all(bots.map(bot => bot.trigger(converted)))
-      }
+    for await (let tr of this.db.each()) {
+      const converted = this.convertTradeType(tr)
+      const bots = this.getBots(I.ReqType.Trade, converted.code)
+      await Promise.all(bots.map(bot => bot.trigger(converted)))
     }
     this.finish()
   }
@@ -50,12 +51,12 @@ export class UPbitTradeMock extends BaseUPbitSocket {
     throw new Error("'UPbitTradeMock' 모드에서는 'newOrder()'를 지원하지 않는다.")
   }
 
-  private convertTradeType(tr: Iu.TradeTickType): I.TradeType {
+  private convertTradeType(tr: DbTradeTickType): I.TradeType {
     return {
       type: I.ReqType.Trade,
       code: tr.market,
       trade_price: tr.trade_price,
-      trade_volume: tr.trade_volume,
+      trade_volume: toNumber(tr.trade_volume),
       ask_bid: tr.ask_bid,
       prev_closing_price: tr.prev_closing_price,
       change: '',
