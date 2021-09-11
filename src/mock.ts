@@ -6,6 +6,7 @@ import {
   DbTable,
   DbTradeTickType,
   DbCandleMinuteType,
+  readyTrade,
 } from './'
 import {
   upbit_types as Iu,
@@ -20,27 +21,49 @@ import {
 import { AbstractOrder } from './order'
 import {
   toNumber,
+  uniq,
 } from 'lodash'
+import { readyCandle } from './database'
+import { OHLCType } from './types'
 
 
 
 export class UPbitTradeMock extends BaseUPbitSocket {
-  constructor(private readonly db: DbTable<DbTradeTickType>) {
-    super(db.codes)
+  private args: {
+    filename: string
+    tableName: string
+    params: {
+      daysAgo: number
+      to?: string
+    }
   }
 
-  async open(): Promise<void> {
+  constructor(filename: string, tableName: string, params: {
+    daysAgo: number
+    to?: string
+  }) {
+    super()
+    this.args = {
+      filename,
+      tableName,
+      params,
+    }
+  }
+
+  async open() {
+    const codes = this.getCodes(I.ReqType.Trade)
+    const table = await readyTrade(this.args.filename, this.args.tableName, {
+      codes,
+      daysAgo: this.args.params.daysAgo,
+      to: this.args.params.to,
+    })
     await this.start()
-    for await (let tr of this.db.each()) {
+    for await (let tr of table.each()) {
       const converted = this.convertTradeType(tr)
       const bots = this.getBots(I.ReqType.Trade, converted.code)
       await Promise.all(bots.map(bot => bot.trigger(converted)))
     }
-    this.finish()
-  }
-
-  async close(): Promise<boolean> {
-    return
+    await this.finish()
   }
 
   newOrderMarket(bot: BaseSocketBot): AbstractOrderMarket {
@@ -69,26 +92,107 @@ export class UPbitTradeMock extends BaseUPbitSocket {
       stream_type: 'REALTIME',
     }
   }
+
+  close = null
 }
 
 
-// export class UPbitCandleMock extends BaseUPbitSocket {
-//   constructor(private readonly db: CandleDb) {
-//     super(db.codes)
-//   }
 
-//   async open(): Promise<void> {
-//     this.start()
-//     for await (c of this.db.each()) {
-//       c
-//     }
-//     const codes = await this.db.getCodes()
-//     for(let code of codes) {
-//       const bots = this.getBots(I.ReqType.Trade, code)
-//     }
-//     this.finish()
-//   }
-// }
+class WrapMockBot {
+  constructor(private readonly bot: BaseSocketBot) {}
+
+  insert(min: 1|3|5|15|10|30|60|240, ohlc: OHLCType) {}
+}
+
+
+export class UPbitCandleMock extends BaseUPbitSocket {
+  private args: {
+    filename: string
+    tableName: string
+    params: {
+      from: string
+      to?: string
+    }
+    override: 'yes'|'no'
+  }
+  private wraps: {
+    [index: string]: {
+      [index: number]: ((ohlc: OHLCType) => Promise<void>)[]
+    }
+  }
+
+  constructor(filename: string, tableName: string, params: {
+    from: string
+    to?: string
+  }, override: 'yes'|'no' = 'no') {
+    super()
+    this.args = {
+      filename,
+      tableName,
+      params,
+      override,
+    }
+  }
+
+  async open(): Promise<void> {
+    this.wraps = {}
+    this.getBots().forEach(bot => {
+      if(!this.wraps[bot.code]) {
+        this.wraps[bot.code] = {}
+      }
+      const cbs = bot.getCandleCallbacks()
+      cbs.forEach(cb => {
+        if(!this.wraps[bot.code][cb.args.minutes]) {
+          this.wraps[bot.code][cb.args.minutes] = []
+        }
+        const ohlcSeq: OHLCType[] = []
+        this.wraps[bot.code][cb.args.minutes].push((ohlc: OHLCType): Promise<void> => {
+          ohlcSeq.unshift(ohlc)
+          if(ohlcSeq.length > cb.args.limit) {
+            ohlcSeq.pop()
+          }
+          return bot[cb.callback](ohlcSeq)
+        })
+      })
+    })
+    //
+    const comins = uniq(this.getBots().map(bot => bot.getCandleCallbacks()
+      .map(cb => `${bot.code}:${cb.args.minutes}`)).flat())
+    const table = await readyCandle(this.args.filename, this.args.tableName, {
+      comins,
+      from: this.args.params.from,
+      to: this.args.params.to,
+    })
+    await this.start()
+    for await (const c of table.each()) {
+      const converted = this.convertCandleType(c)
+      // await Promise.all(this.wraps[c.market][c.unit].map(wrap => () => wrap(converted)))
+      await Promise.all(this.wraps[c.market][c.unit].map(wrap => wrap(converted)))
+    }
+    await this.finish()
+  }
+
+  newOrderMarket(bot: BaseSocketBot): AbstractOrderMarket {
+    return new OrderMarketMock(bot)
+  }
+
+  newOrder(bot: BaseSocketBot): AbstractOrder {
+    throw new Error("'UPbitTradeMock' 모드에서는 'newOrder()'를 지원하지 않는다.")
+  }
+
+  private convertCandleType(dbCandle: DbCandleMinuteType): I.OHLCType {
+    return {
+      close: dbCandle.trade_price,
+      high: dbCandle.high_price,
+      low: dbCandle.low_price,
+      open: dbCandle.opening_price,
+      timestamp: dbCandle.timestamp,
+      volume: toNumber(dbCandle.candle_acc_trade_volume),
+    }
+  }
+
+  close = null
+}
 
 
 

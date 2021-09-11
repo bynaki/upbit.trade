@@ -4,7 +4,6 @@ import test, {
 import {
   BaseSocketBot,
   types as I,
-  TradeDb,
   OrderMarket,
   UPbitTradeMock,
 } from '../src'
@@ -66,7 +65,6 @@ class TestTradeBot extends BaseSocketBot {
       'stream_type',
     ])
     this.pre = tr
-    return false
   }
 
   onOrderbook = null
@@ -150,33 +148,34 @@ test.before(() => {
 })
 
 test.serial('UPbitTradeMock', async t => {
-  const db = new TradeDb(join(__dirname, 'mock-test.db'))
-  await db.ready(codes, {
+  const mock = new UPbitTradeMock(join(__dirname, 'mock-test.db'), 'test_mock1', {
     daysAgo: 0,
     to: '00:00:10',
   })
-  console.log(await db.getCodes())
-  const mock = new UPbitTradeMock(db)
-  mock.addBotClass(TestTradeBot)
-  const bots: TestTradeBot[] = mock.getBots<TestTradeBot>(I.ReqType.Trade)
+  mock.addBotClass(TestTradeBot, [
+    "KRW-BTC",
+    "KRW-ETH",
+  ])
+  const bots: TestTradeBot[] = mock.getBots(I.ReqType.Trade)
   bots.forEach(bot => bot.setTestObject(t))
   await mock.open()
   for(let bot of bots) {
     t.is(bot.started, 1)
     t.is(bot.finished, 1)
     t.true(bot.count > 0)
-    t.is(bot.count, await db.count(bot.code))
     t.is(bot.pre.trade_time, '00:00:09')
   }
 })
 
 test.serial('OrderMarketMock', async t => {
-  const db = new TradeDb(join(__dirname, 'mock-test.db'))
-  await db.ready(codes, {
+  const mock = new UPbitTradeMock(join(__dirname, 'mock-test.db'), 'test_mock1', {
     daysAgo: 0,
     to: '00:00:10',
   })
-  const mock = new UPbitTradeMock(db)
+  mock.addBotClass(TestTradeBot, [
+    "KRW-BTC",
+    "KRW-ETH",
+  ])
   mock.addBot(new TestOrderBot('KRW-BTC', t))
   await mock.open()
 })

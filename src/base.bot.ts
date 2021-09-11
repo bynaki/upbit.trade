@@ -17,7 +17,7 @@ import {
 
 
 export abstract class BaseSocketBot extends Logger {
-  protected _queue: {
+  private _queue: {
     trade: I.ResType[]
     orderbook: I.ResType[]
     ticker: I.ResType[]
@@ -26,7 +26,7 @@ export abstract class BaseSocketBot extends Logger {
     orderbook: [],
     ticker: [],
   }
-  protected _latests: {
+  private _latests: {
     trade: I.ResType
     orderbook: I.ResType
     ticker: I.ResType
@@ -35,52 +35,18 @@ export abstract class BaseSocketBot extends Logger {
     orderbook: null,
     ticker: null,
   }
-  private socket: BaseUPbitSocket = null
+  private _socket: BaseUPbitSocket = null
+  private _ohlcMaker: OHLCMaker = null
+  private _candleCallbacks: {
+    callback: string
+    args: {
+      minutes: number
+      limit: number
+    }
+  }[] = null
 
   constructor(public readonly code: string) {
     super(code)
-  }
-
-  async trigger<T extends I.ResType>(data: T) {
-    this._latests[data.type] = data
-    if(this.onTrade && this._latests[I.ReqType.Trade] === null) {
-      return
-    }
-    if(this.onOrderbook && this._latests[I.ReqType.Orderbook] === null) {
-      return
-    }
-    if(this.onTicker && this._latests[I.ReqType.Ticker] === null) {
-      return
-    }
-    if(this._queue[data.type].length === 0) {
-      this._queue[data.type].push(data)
-      while(this._queue[data.type].length !== 0) {
-        const release = await this._trigger(this._queue[data.type][0])
-        if(release) {
-          this._queue[data.type] = []
-        } else {
-          this._queue[data.type].shift()
-        }
-      }
-    } else {
-      this._queue[data.type].push(data)
-    }
-  }
-
-  private async _trigger<T extends I.ResType>(data: T) {
-    switch(data.type) {
-      case I.ReqType.Trade:
-        this._latests.trade = data
-        return this.onTrade(data as any)
-      case I.ReqType.Orderbook:
-        this._latests.orderbook = data
-        return this.onOrderbook(data as any)
-      case I.ReqType.Ticker:
-        this._latests.ticker = data
-        return this.onTicker(data as any)
-      default:
-        throw new Error(`'${data.type}' is unknown type.`)
-    }
   }
 
   get name() {
@@ -98,14 +64,84 @@ export abstract class BaseSocketBot extends Logger {
   }
 
   newOrder(): AbstractOrder {
-    return this.socket.newOrder(this)
+    return this._socket.newOrder(this)
   }
   newOrderMarket(): AbstractOrderMarket {
-    return this.socket.newOrderMarket(this)
+    return this._socket.newOrderMarket(this)
+  }
+
+  get hasCandleEvent() {
+    return this.getCandleCallbacks().length !== 0
+  }
+
+  async trigger<T extends I.ResType>(data: T) {
+    this._latests[data.type] = data
+    if((this.onTrade || this.hasCandleEvent) && this._latests[I.ReqType.Trade] === null) {
+      return
+    }
+    if(this.onOrderbook && this._latests[I.ReqType.Orderbook] === null) {
+      return
+    }
+    if(this.onTicker && this._latests[I.ReqType.Ticker] === null) {
+      return
+    }
+    if(this._queue[data.type].length === 0) {
+      this._queue[data.type].push(data)
+      while(this._queue[data.type].length !== 0) {
+        const res = this._queue[data.type][0]
+        if(data.type === I.ReqType.Trade && this.hasCandleEvent) {
+          await Promise.all([this._trigger(res), this._triggerCandle(res as I.TradeType)])
+        } else {
+          await this._trigger(res)
+        }
+        this._queue[data.type].shift()
+      }
+    } else {
+      this._queue[data.type].push(data)
+    }
+  }
+
+  private async _trigger(data: I.ResType) {
+    switch(data.type) {
+      case I.ReqType.Trade:
+        return this.onTrade && this.onTrade(data as I.TradeType)
+      case I.ReqType.Orderbook:
+        return this.onOrderbook(data as I.OrderbookType)
+      case I.ReqType.Ticker:
+        return this.onTicker(data as I.TickerType)
+      default:
+        throw new Error(`'${data.type}' is unknown type.`)
+    }
+  }
+
+  private async _triggerCandle(tr: I.TradeType) {
+    const callbacks = this.getCandleCallbacks()
+    this._ohlcMaker.push(tr)
+    for(const cb of callbacks) {
+      const os = this._ohlcMaker.as(cb.args.minutes)
+      if(os.length !== 0) {
+        await this[cb.callback](os)
+      }
+    }
+  }
+
+  getCandleCallbacks() {
+    if(this._candleCallbacks) {
+      return this._candleCallbacks
+    }
+    this._candleCallbacks = []
+    if(listeners[this.constructor.name] && listeners[this.constructor.name][I.EventType.Candle]) {
+      this._candleCallbacks = listeners[this.constructor.name][I.EventType.Candle]
+      let limit = this._candleCallbacks.reduce((max, l) => Math.max(l.args.minutes * l.args.limit, max), 0)
+      if(limit !== 0) {
+        this._ohlcMaker = new OHLCMaker(limit)
+      }
+    }
+    return this._candleCallbacks
   }
 
   _start<S extends BaseUPbitSocket>(socket: S): Promise<void> {
-    this.socket = socket
+    this._socket = socket
     if(this.start) {
       return this.start(socket)
     }
@@ -119,9 +155,9 @@ export abstract class BaseSocketBot extends Logger {
 
   abstract start<S extends BaseUPbitSocket>(socket: S): Promise<void>
   abstract finish(): Promise<void>
-  abstract onTrade(data: I.TradeType): Promise<boolean|void>
-  abstract onOrderbook(data: I.OrderbookType): Promise<boolean|void>
-  abstract onTicker(data: I.TickerType): Promise<boolean|void>
+  abstract onTrade(data: I.TradeType): Promise<void>
+  abstract onOrderbook(data: I.OrderbookType): Promise<void>
+  abstract onTicker(data: I.TickerType): Promise<void>
 }
 
 
@@ -156,11 +192,11 @@ function addEventListener<B extends BaseSocketBot, E extends I.EventType>(
 
 type DecoCandleListenerType = {
   (minutes: number, limit: number)
-  : (target: BaseCandleBot, property: string, descriptor: PropertyDescriptor) => PropertyDescriptor
+  : (target: BaseSocketBot, property: string, descriptor: PropertyDescriptor) => PropertyDescriptor
 }
 
 export const addCandleListener: DecoCandleListenerType = (minutes: number, limit: number) => {
-  return (target: BaseCandleBot, property: string, descriptor: PropertyDescriptor) => {
+  return (target: BaseSocketBot, property: string, descriptor: PropertyDescriptor) => {
     addEventListener(target, I.EventType.Candle, property, {
       minutes,
       limit,
@@ -170,40 +206,41 @@ export const addCandleListener: DecoCandleListenerType = (minutes: number, limit
 }
 
 
-export abstract class BaseCandleBot extends BaseSocketBot {
-  private _ohlcMaker: OHLCMaker = null
 
-  constructor(code: string) {
-    super(code)
-  }
+// export abstract class BaseCandleBot extends BaseSocketBot {
+//   private _ohlcMaker: OHLCMaker = null
 
-  _start<S extends BaseUPbitSocket>(socket?: S): Promise<void> {
-    if(listeners[this.constructor.name] && listeners[this.constructor.name][I.EventType.Candle]) {
-      const candleListeners = listeners[this.constructor.name][I.EventType.Candle]
-      let limit = candleListeners.reduce((max, l) => Math.max(l.args.minutes * l.args.limit, max), 0)
-      if(limit !== 0) {
-        this._ohlcMaker = new OHLCMaker(limit)
-      }
-    }
-    return super._start(socket)
-  }
+//   constructor(code: string) {
+//     super(code)
+//   }
 
-  async onTrade(tr: I.TradeType): Promise<boolean|void> {
-    if(listeners[this.constructor.name] && listeners[this.constructor.name][I.EventType.Candle]) {
-      this._ohlcMaker.push(tr)
-      const candleListeners = listeners[this.constructor.name][I.EventType.Candle]
-      for(let i = 0; i < candleListeners.length; i++) {
-        const os = this._ohlcMaker.as(candleListeners[i].args.minutes)
-        if(os.length !== 0) {
-          await this[candleListeners[i].callback](os)
-        }
-      }
-    }
-  }
+//   _start<S extends BaseUPbitSocket>(socket?: S): Promise<void> {
+//     if(listeners[this.constructor.name] && listeners[this.constructor.name][I.EventType.Candle]) {
+//       const candleListeners = listeners[this.constructor.name][I.EventType.Candle]
+//       let limit = candleListeners.reduce((max, l) => Math.max(l.args.minutes * l.args.limit, max), 0)
+//       if(limit !== 0) {
+//         this._ohlcMaker = new OHLCMaker(limit)
+//       }
+//     }
+//     return super._start(socket)
+//   }
+
+//   async onTrade(tr: I.TradeType): Promise<boolean|void> {
+//     if(listeners[this.constructor.name] && listeners[this.constructor.name][I.EventType.Candle]) {
+//       this._ohlcMaker.push(tr)
+//       const candleListeners = listeners[this.constructor.name][I.EventType.Candle]
+//       for(let i = 0; i < candleListeners.length; i++) {
+//         const os = this._ohlcMaker.as(candleListeners[i].args.minutes)
+//         if(os.length !== 0) {
+//           await this[candleListeners[i].callback](os)
+//         }
+//       }
+//     }
+//   }
   
-  onOrderbook = null
-  onTicker = null
-}
+//   onOrderbook = null
+//   onTicker = null
+// }
 
 
 // BaseSocketBot.writer.link = new FileWriter('./log/bot.log', '1d')

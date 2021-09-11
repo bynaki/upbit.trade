@@ -14,15 +14,39 @@ import {
   UPbitSequence,
   getConfig,
 } from './'
+import { toNumber } from 'lodash'
 
 
 
-type TableType = {
+type SqlMasterType = {
   type: string
   name: string
   tbl_name: string
   rootpage: number
   sql: string
+}
+
+
+export interface TableType {
+  name: string
+  create_date: number
+  order_by: string
+}
+
+export interface TradeTableType extends TableType {
+  params: {
+    codes: string[]
+    daysAgo: number
+    to?: string
+  }
+}
+
+export interface CandleTableType extends TableType {
+  params: {
+    comins: string[]
+    from: string
+    to?: string
+  }
 }
 
 export interface DbTradeTickType extends Iu.TradeTickType {
@@ -34,31 +58,49 @@ export interface DbCandleMinuteType extends Iu.CandleMinuteType {
   candle_acc_trade_volume: any
 }
 
-export async function ready<T>(filename: string, tableName: string): Promise<DbTable<T>> {
-  const db = new Database(filename)
-  const table = db.ready<T>(tableName)
-  if(table === null) {
-    throw new Error(`'${filename}' 데이터베이스에 '${tableName}' 테이블이 없다.`)
-  }
-  return table
+// export async function readyDb<T>(filename: string, tableName: string): Promise<DbTable<T>> {
+//   const db = new Database(filename)
+//   const table = db.ready<T>(tableName)
+//   if(table === null) {
+//     throw new Error(`'${filename}' 데이터베이스에 '${tableName}' 테이블이 없다.`)
+//   }
+//   return table
+// }
+
+function subset(a: string[], b: string[]) {
+  return a.every(i => b.some(j => i === j))
 }
 
-export async function readyTrade(filename: string, tableName: string, params: {
+
+
+export async function readyTrade(filename: string, tableName: string, params?: {
   codes: string[]
   daysAgo: number
   to?: string
-}, override: 'yes'|'no' = 'no'): Promise<DbTable<DbTradeTickType>> {
+}): Promise<DbTable<DbTradeTickType, TradeTableType>> {
   let {codes, daysAgo}  = params
   if(!daysAgo) {
     daysAgo = 0
   }
   const db = new Database(filename)
-  const table: DbTable<DbTradeTickType> = await db.ready(tableName)
-  if(table && override === 'no') {
-    return table
+  const table: DbTable<DbTradeTickType, TradeTableType> = await db.ready(tableName)
+  if(!table && !params) {
+    throw new Error(`'${filename}' 데이터베이스에 '${tableName}' 테이블이 없다.`)
   }
-  if(table && override === 'yes') {
-    await db.dropTable(tableName)
+  if(table) {
+    if(!params) {
+      return table
+    }
+    const pp: {
+      codes: string[]
+      daysAgo: number
+      to?: string
+    } = (await table.getType()).params
+    if(subset(codes, pp.codes) && params.daysAgo === pp.daysAgo && params.to === pp.to) {
+      return table
+    } else {
+      await db.dropTable(tableName)
+    }
   }
   await db.createTable(tableName, {
     market: 'TEXT',
@@ -71,7 +113,7 @@ export async function readyTrade(filename: string, tableName: string, params: {
     change_price: 'INTEGER',
     ask_bid: 'TEXT',
     sequential_id: 'INTEGER PRIMARY KEY',
-  }, codes, 'sequential_id')
+  }, JSON.stringify(params), 'sequential_id')
   const api = new UPbitSequence(getConfig('./config.json').upbit_keys)
   let to
   let count = 0
@@ -91,36 +133,35 @@ export async function readyTrade(filename: string, tableName: string, params: {
         await db.insert(tableName, trs)
       }
     }
-    // const inserts = []
-    // for(const code of codes) {
-    //   for await (const trs of api.chunkTradesTicks({
-    //     market: code,
-    //     daysAgo: day,
-    //     to,
-    //   })) {
-    //     count += trs.length
-    //     inserts.push(db.insert(tableName, trs))
-    //   }
-    // }
-    // await Promise.all(inserts)
   }
-  return ready(filename, tableName)
+  return db.ready(tableName)
 }
 
-export async function readyCandle(filename: string, tableName: string, params: {
-  codes: string[]
-  min: 1|3|5|15|10|30|60|240
+export async function readyCandle(filename: string, tableName: string, params?: {
+  comins: string[]
   from: string
   to?: string
-}, override: 'yes'|'no' = 'no'): Promise<DbTable<DbCandleMinuteType>> {
-  const {codes, min, from, to} = params
+}): Promise<DbTable<DbCandleMinuteType, CandleTableType>> {
+  const {comins, from, to} = params
   const db = new Database(filename)
-  const table: DbTable<DbCandleMinuteType> = await db.ready(tableName)
-  if(table && override === 'no') {
-    return table
+  const table: DbTable<DbCandleMinuteType, CandleTableType> = await db.ready(tableName)
+  if(!table && !params) {
+    throw new Error(`'${filename}' 데이터베이스에 '${tableName}' 테이블이 없다.`)
   }
-  if(table && override === 'yes') {
-    await db.dropTable(tableName)
+  if(table) {
+    if(!params) {
+      return table
+    }
+    const pp: {
+      comins: string[]
+      from: string
+      to?: string
+    } = (await table.getType()).params
+    if(subset(comins, pp.comins) && from === pp.from && to === pp.to) {
+      return table
+    } else {
+      await db.dropTable(tableName)
+    }
   }
   await db.createTable(tableName, {
     market: 'TEXT',
@@ -134,11 +175,14 @@ export async function readyCandle(filename: string, tableName: string, params: {
     candle_acc_trade_price: 'TEXT',
     candle_acc_trade_volume: 'TEXT',
     unit: 'INTEGER'
-  }, codes, 'timestamp')
+  }, JSON.stringify({from, to}), 'timestamp')
   const api = new UPbitSequence(getConfig('./config.json').upbit_keys)
   let count = 0
-  for(const code of codes) {
-    for await (let cs of api.chunkCandlesMinutes(min, {
+  for(const comin of comins) {
+    const matchs = comin.match(/(\w+-\w+):(\d+)/)
+    const code = matchs[1]
+    const min = toNumber(matchs[2])
+    for await (let cs of api.chunkCandlesMinutes(min as any, {
       market: code,
       from,
       to,
@@ -147,58 +191,44 @@ export async function readyCandle(filename: string, tableName: string, params: {
       await db.insert(tableName, cs)
     }
   }
-  // const inserts = []
-  // for(const code of codes) {
-  //   for await (let cs of api.chunkCandlesMinutes(min, {
-  //     market: code,
-  //     from,
-  //     to,
-  //   })) {
-  //     count += cs.length
-  //     inserts.push(db.insert.call(db, cs))
-  //   }
-  // }
-  // await Promise.all(inserts)
-  return ready(filename, tableName)
+  return db.ready(tableName)
 }
 
 
 
-export class DbTable<T> {
-  private _codes: string[] = null
-  private _orderBy: string = null
+export class DbTable<T, TT extends TableType> {
+  private tt: TT = null
 
   constructor(protected readonly db: Database
   , protected readonly tableName: string) {}
 
-  async getCodes(): Promise<string[]> {
-    if(!this._codes) {
-      const cc: string = await this.db.get(`select codes from tables where table = '${this.tableName}'`)
-      this._codes = cc.split(',')
+  // async getParams<T>(): Promise<T> {
+  //   if(!this._params) {
+  //     const pp: string = await this.db.get(`select params from tables where name = '${this.tableName}'`)
+  //     this._params = JSON.parse(pp)
+  //   }
+  //   return this._params as T
+  // }
+
+  // async getOrderBy(): Promise<string> {
+  //   if(!this._orderBy) {
+  //     this._orderBy = (await this.db.get(`select order_by from tables where name = '${this.tableName}'`)).order_by
+  //   }
+  //   return this._orderBy
+  // }
+
+  async getType(): Promise<TT> {
+    if(!this.tt) {
+      this.tt = await this.db.getTableType(this.tableName)
     }
-    return this._codes
-  }
-
-  async getOrderBy(): Promise<string> {
-    if(!this._orderBy) {
-      this._orderBy = await this.db.get(`select order_by from tables where table = '${this.tableName}'`)
-    }
-    return this._orderBy
-  }
-
-  get codes(): string[] {
-    return this._codes
-  }
-
-  get orderBy(): string {
-    return this._orderBy
+    return this.tt
   }
 
   async * each(): AsyncGenerator<T> {
     const length = 500
     let offset = 0
     let trs = []
-    const orderBy = await this.getOrderBy()
+    const orderBy = (await this.getType()).order_by
     do {
       trs = await this.get(orderBy, offset, length)
       for(let tr of trs) {
@@ -240,45 +270,56 @@ class Database {
   constructor(protected readonly filename: string) {
   }
 
-  async ready<T>(tableName: string): Promise<DbTable<T>> {
+  async ready<T, TT extends TableType>(tableName: string): Promise<DbTable<T, TT>> {
     if(!this.db) {
       this.db = await open({
         filename: this.filename,
         driver: sqlite3,
       })
     }
-    const tables = await this.tables()
-    const exists = tables.some(t => t.name === tableName)
-    if(exists) {
-      return new DbTable<T>(this, tableName)
-    } else {
+    if(!await this.sqlMaster('tables')) {
       await this.run(`create table tables (
-        table TEXT,
-        codes TEXT,
-        order_by TEXT
-      )`)
+        name text,
+        create_date integer,
+        params text,
+        order_by text
+      );`)
+    }
+    if(await this.sqlMaster(tableName)) {
+      return new DbTable(this, tableName)
+    } else {
       return null
       // throw new Error(`'${this.filename}' 데이터베이스에 '${tableName}' 테이블이 없다.`)
     }
   }
 
-  async tables(): Promise<TableType[]> {
-    return this.db.all('select * from sqlite_master')
+  async sqlMaster(tableName: string): Promise<SqlMasterType> {
+    return this.db.get(`select * from sqlite_master where type = 'table' and name = '${tableName}'`)
+  }
+
+  async getTableType<T extends TableType>(tableName: string): Promise<T> {
+    const tTable = await this.db.get(`select * from tables where name = '${tableName}'`)
+    return {
+      name: tTable.name,
+      create_date: tTable.create_date,
+      params: JSON.parse(tTable.params),
+      order_by: tTable.order_by,
+    } as any
   }
 
   async dropTable(tableName: string) {
     return Promise.all([this.db.run(`drop table ${tableName}`)
-    , this.db.run(`delete from tables where table = '${tableName}'`)])
+    , this.db.run(`delete from tables where name = '${tableName}'`)])
   }
 
-  async createTable(tableName: string, schema: {[index: string]: string}, codes: string[], orderBy: string) {
+  async createTable(tableName: string, schema: {[index: string]: string}, params: string, orderBy: string) {
     const columns = Object.keys(schema)
     await this.run(`create table ${tableName} (${columns.map(c => `${c} ${schema[c]}`).join(', ')})`)
-    await this.run(`insert into tables values ('${tableName}', '${codes.join(', ')}', '${orderBy}')`)
+    await this.run(`insert into tables values ('${tableName}', ${Date.now()}, '${params}', '${orderBy}')`)
   }
 
   async insert<T>(tableName: string, values: T[]) {
-    const sql = (await this.tables()).filter(t => t.name === tableName).map(t => t.sql)[0]
+    const sql = (await this.sqlMaster(tableName)).sql
     const dbVals = values.map(val => {
       const keys = Object.keys(val)
       const vv = keys.map(key => {
