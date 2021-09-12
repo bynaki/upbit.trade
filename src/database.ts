@@ -76,21 +76,22 @@ function subset(a: string[], b: string[]) {
 export async function readyTrade(filename: string, tableName: string, params?: {
   codes: string[]
   daysAgo: number
+  // utc이다.
   to?: string
 }): Promise<DbTable<DbTradeTickType, TradeTableType>> {
-  let {codes, daysAgo}  = params
-  if(!daysAgo) {
-    daysAgo = 0
-  }
   const db = new Database(filename)
   const table: DbTable<DbTradeTickType, TradeTableType> = await db.ready(tableName)
   if(!table && !params) {
     throw new Error(`'${filename}' 데이터베이스에 '${tableName}' 테이블이 없다.`)
   }
+  if(table && !params) {
+    return table
+  }
+  let {codes, daysAgo}  = params
+  if(!daysAgo) {
+    daysAgo = 0
+  }
   if(table) {
-    if(!params) {
-      return table
-    }
     const pp: {
       codes: string[]
       daysAgo: number
@@ -112,7 +113,7 @@ export async function readyTrade(filename: string, tableName: string, params?: {
     prev_closing_price: 'INTEGER',
     change_price: 'INTEGER',
     ask_bid: 'TEXT',
-    sequential_id: 'INTEGER PRIMARY KEY',
+    sequential_id: 'INTEGER',
   }, JSON.stringify(params), 'sequential_id')
   const api = new UPbitSequence(getConfig('./config.json').upbit_keys)
   let to
@@ -139,19 +140,20 @@ export async function readyTrade(filename: string, tableName: string, params?: {
 
 export async function readyCandle(filename: string, tableName: string, params?: {
   comins: string[]
+  // 2021-08-24T00:00:00+00:00 형식이고 +00:00 생략하면 kst 이다.
   from: string
   to?: string
 }): Promise<DbTable<DbCandleMinuteType, CandleTableType>> {
-  const {comins, from, to} = params
   const db = new Database(filename)
   const table: DbTable<DbCandleMinuteType, CandleTableType> = await db.ready(tableName)
   if(!table && !params) {
     throw new Error(`'${filename}' 데이터베이스에 '${tableName}' 테이블이 없다.`)
   }
+  if(table && !params) {
+    return table
+  }
+  const {comins, from, to} = params
   if(table) {
-    if(!params) {
-      return table
-    }
     const pp: {
       comins: string[]
       from: string
@@ -175,7 +177,7 @@ export async function readyCandle(filename: string, tableName: string, params?: 
     candle_acc_trade_price: 'TEXT',
     candle_acc_trade_volume: 'TEXT',
     unit: 'INTEGER'
-  }, JSON.stringify({from, to}), 'timestamp')
+  }, JSON.stringify(params), 'timestamp')
   const api = new UPbitSequence(getConfig('./config.json').upbit_keys)
   let count = 0
   for(const comin of comins) {
@@ -201,21 +203,6 @@ export class DbTable<T, TT extends TableType> {
 
   constructor(protected readonly db: Database
   , protected readonly tableName: string) {}
-
-  // async getParams<T>(): Promise<T> {
-  //   if(!this._params) {
-  //     const pp: string = await this.db.get(`select params from tables where name = '${this.tableName}'`)
-  //     this._params = JSON.parse(pp)
-  //   }
-  //   return this._params as T
-  // }
-
-  // async getOrderBy(): Promise<string> {
-  //   if(!this._orderBy) {
-  //     this._orderBy = (await this.db.get(`select order_by from tables where name = '${this.tableName}'`)).order_by
-  //   }
-  //   return this._orderBy
-  // }
 
   async getType(): Promise<TT> {
     if(!this.tt) {

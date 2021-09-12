@@ -235,11 +235,11 @@ test.serial.cb('TestLatestBot', t => {
 
 
 test.before(() => {
-  removeSync(join(__dirname, 'test.db'))
+  removeSync(join(__dirname, 'test-bot.db'))
 })
 
 test.serial.cb('TestCandleBot', t => {
-  const us = new UPbitTradeMock(join(__dirname, 'test.db'), 'TestCandleBot', {
+  const us = new UPbitTradeMock(join(__dirname, 'test-bot.db'), 'TestCandleBot', {
     daysAgo: 0,
     to: '00:03:00',
   })

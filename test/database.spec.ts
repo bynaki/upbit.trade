@@ -9,10 +9,12 @@ import {
   upbit_types as Iu,
 } from 'cryptocurrency.api'
 import {
+  CandleTableType,
+  DbCandleMinuteType,
+  DbTradeTickType,
   readyCandle,
   readyTrade,
-  UPbitSequence,
-  DbTable,
+  TradeTableType,
 } from '../src'
 
 
@@ -30,35 +32,161 @@ const codes = [
 
 
 
-test.serial('readyTrade(): error', async t => {
+test.serial('readyTrade(): 데이터베이스 테이블이 존재하지 않은면 params 인수를 생략하면 에러가 발생한다.', async t => {
   try {
     const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade')
   } catch(e) {
-    t.is(e.message, `${join(__dirname, 'trade.db')} database가 없기 때문에 인수를 전달해야 한다.`)
+    t.is(e.message, `'${join(__dirname, 'test-db.db')}' 데이터베이스에 'trade' 테이블이 없다.`)
   }
 })
 
-// test.serial('TradeDb#ready()', async t => {
-//   const db = new TradeDb(join(__dirname, 'trade.db'))
-//   const already = await db.ready(codes, {
-//     daysAgo: 0,
-//     to: '00:03:00',
-//   })
-//   t.false(already)
-// })
+test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은면 params 인수를 생략하면 에러가 발생한다.', async t => {
+  try {
+    const db = await readyCandle(join(__dirname, 'test-db.db'), 'candle')
+  } catch(e) {
+    t.is(e.message, `'${join(__dirname, 'test-db.db')}' 데이터베이스에 'candle' 테이블이 없다.`)
+  }
+})
 
-// test.serial('TradeDb#ready() again', async t => {
-//   const db = new TradeDb(join(__dirname, 'trade.db'))
-//   const already = await db.ready()
-//   t.true(already)
-// })
+{
+  let type: TradeTableType
+  test.serial('readyTrade(): api에서 trade 데이터를 가져와 데이터베이스에 저장하고 시간 순서대로 가져온다.', async t => {
+    const params = {
+      daysAgo: 0,
+      to: '00:01:00',
+      codes,
+    }
+    const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade', params)
+    type = await db.getType()
+    console.log(type)
+    t.deepEqual(type, {
+      name: 'trade',
+      create_date: type.create_date,
+      params,
+      order_by: 'sequential_id',
+    })
+    let got: DbTradeTickType
+    for await (got of db.each()) {
+    }
+    t.is(got.trade_time_utc, '00:00:59')
+  })
 
-// test.serial('TradeDb#count()', async t => {
-//   const db = new TradeDb(join(__dirname, 'trade.db'))
-//   await db.ready()
-//   const count = await db.count(codes[0])
-//   t.true(count > 0)
-// })
+  test.serial('readyTrade(): 데이터베이스 테이블이 존재할 때 같은 인수를 전달하면 api에서 가져오지 않고 바로 데이터베이스에서 가져온다.', async t => {
+    const params = {
+      daysAgo: 0,
+      to: '00:01:00',
+      codes,
+    }
+    const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade', params)
+    t.is((await db.getType()).create_date, type.create_date)
+    let got: DbTradeTickType
+    for await (got of db.each()) {
+    }
+    t.is(got.trade_time_utc, '00:00:59')
+  })
+
+  test.serial('readyTrade(): 데이터베이스 테이블이 존재할 때 인수를 생략할 수 있다.', async t => {
+    const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade')
+    t.is((await db.getType()).create_date, type.create_date)
+    let got: DbTradeTickType
+    for await (got of db.each()) {
+    }
+    t.is(got.trade_time_utc, '00:00:59')
+  })
+
+  test.serial('readyTrade(): 데이터베이스 테이블이 존재하더라도 그전 인수와 다르다면 api에서 새로 가져온다.', async t => {
+    const params = {
+      daysAgo: 0,
+      to: '00:00:30',
+      codes,
+    }
+    const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade', params)
+    t.not((await db.getType()).create_date, type.create_date)
+    let got: DbTradeTickType
+    for await (got of db.each()) {
+    }
+    t.is(got.trade_time_utc, '00:00:29')
+  })
+}
+
+{
+  const comins = codes.map(c => c + ':1')
+  let type: CandleTableType
+
+  test.serial('readyCandle(): api에서 candle 데이터를 가져와 데이터베이스에 저장하고 시간 순서대로 가져온다.', async t => {
+    const params = {
+      comins,
+      from: '2021-08-24T00:00:00+00:00',
+      to: '2021-08-24T00:10:00+00:00',
+    }
+    const db = await readyCandle(join(__dirname, 'test-db.db'), 'candle', params)
+    type = await db.getType()
+    console.log(type)
+    t.deepEqual(type, {
+      name: 'candle',
+      create_date: type.create_date,
+      params,
+      order_by: 'timestamp',
+    })
+    const candles: DbCandleMinuteType[] = []
+    for await (let got of db.each()) {
+      candles.push(got)
+    }
+    t.is(candles.length, 40)
+    t.is(candles[0].candle_date_time_utc, '2021-08-24T00:00:00')
+    t.is(candles[0].unit, 1)
+    t.is(candles[candles.length - 1].candle_date_time_utc, '2021-08-24T00:09:00')
+  })
+
+  test.serial('readyCandle(): 데이터베이스 테이블이 존재할 때 같은 인수를 전달하면 api에서 가져오지 않고 바로 데이터베이스에서 가져온다.', async t => {
+    const params = {
+      comins,
+      from: '2021-08-24T00:00:00+00:00',
+      to: '2021-08-24T00:10:00+00:00',
+    }
+    const db = await readyCandle(join(__dirname, 'test-db.db'), 'candle', params)
+    t.is((await db.getType()).create_date, type.create_date)
+    const candles: DbCandleMinuteType[] = []
+    for await (let got of db.each()) {
+      candles.push(got)
+    }
+    t.is(candles.length, 40)
+    t.is(candles[0].candle_date_time_utc, '2021-08-24T00:00:00')
+    t.is(candles[0].unit, 1)
+    t.is(candles[candles.length - 1].candle_date_time_utc, '2021-08-24T00:09:00')
+  })
+
+  test.serial('readyCandle(): 데이터베이스 테이블이 존재할 때 인수를 생략할 수 있다.', async t => {
+    const db = await readyCandle(join(__dirname, 'test-db.db'), 'candle')
+    t.is((await db.getType()).create_date, type.create_date)
+    const candles: DbCandleMinuteType[] = []
+    for await (let got of db.each()) {
+      candles.push(got)
+    }
+    t.is(candles.length, 40)
+    t.is(candles[0].candle_date_time_utc, '2021-08-24T00:00:00')
+    t.is(candles[0].unit, 1)
+    t.is(candles[candles.length - 1].candle_date_time_utc, '2021-08-24T00:09:00')
+  })
+
+  test.serial('readyCandle(): 데이터베이스 테이블이 존재하더라도 그전 인수와 다르다면 api에서 새로 가져온다.', async t => {
+    const params = {
+      comins,
+      from: '2021-08-24T00:00:00+00:00',
+      to: '2021-08-24T00:05:00+00:00',
+    }
+    const db = await readyCandle(join(__dirname, 'test-db.db'), 'candle', params)
+    t.not((await db.getType()).create_date, type.create_date)
+    const candles: DbCandleMinuteType[] = []
+    for await (let got of db.each()) {
+      candles.push(got)
+    }
+    t.is(candles.length, 20)
+    t.is(candles[0].candle_date_time_utc, '2021-08-24T00:00:00')
+    t.is(candles[0].unit, 1)
+    t.is(candles[candles.length - 1].candle_date_time_utc, '2021-08-24T00:04:00')
+  })
+}
 
 // test.serial('TradeDb#get()', async t => {
 //   const db = new TradeDb(join(__dirname, 'trade.db'))
