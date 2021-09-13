@@ -51,6 +51,12 @@ export class UPbitTradeMock extends BaseUPbitSocket {
   }
 
   async open() {
+    if(this.getCodes(I.ReqType.Ticker).length !== 0) {
+      throw new Error('"mock" 모드에서는 "onTicker()" 를 제공하지 않는다.')
+    }
+    if(this.getCodes(I.ReqType.Orderbook).length !== 0) {
+      throw new Error('"mock" 모드에서는 "onOrderbook()" 을 제공하지 않는다.')
+    }
     const codes = this.getCodes(I.ReqType.Trade)
     const table = await readyTrade(this.args.filename, this.args.tableName, {
       codes,

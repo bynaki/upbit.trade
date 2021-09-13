@@ -238,68 +238,6 @@ test.before(() => {
   removeSync(join(__dirname, 'test-bot.db'))
 })
 
-test.serial.cb('TestCandleBot', t => {
-  const us = new UPbitTradeMock(join(__dirname, 'test-bot.db'), 'TestCandleBot', {
-    daysAgo: 0,
-    to: '00:03:00',
-  })
-  const bot = new TestCandleBot('KRW-BTC', t)
-  us.addBot(bot)
-  us.open()
-})
-
-
-
-class TestCandleBot extends BaseSocketBot {
-  ohlcs: I.OHLCType[] = []
-
-  constructor(code: string, private readonly t: CbExecutionContext) {
-    super(code)
-  }
-  
-  @addCandleListener(1, 10)
-  async onCandle1m(ohlcs: I.OHLCType[]) {
-    if(ohlcs.length === 3) {
-      const rev = ohlcs.reverse()
-      const api = new UPbitSequence(getConfig().upbit_keys)
-      const cc = (await api.allCandlesMinutes(1, {
-        market: 'KRW-BTC',
-        from: format(new Date(rev[0].timestamp), 'isoDateTime'),
-        to: format(new Date(rev[2].timestamp), 'isoDateTime'),
-      })).reverse()
-      rev[0].volume = Math.floor(rev[0].volume * 100000000) / 100000000
-      rev[1].volume = Math.floor(rev[1].volume * 100000000) / 100000000
-      this.t.deepEqual(rev[0], {
-        open: cc[0].opening_price,
-        high: cc[0].high_price,
-        low: cc[0].low_price,
-        close: cc[0].trade_price,
-        volume: cc[0].candle_acc_trade_volume,
-        timestamp: new Date(cc[0].candle_date_time_utc + '+00:00').getTime(),
-      })
-      this.t.deepEqual(rev[1], {
-        open: cc[1].opening_price,
-        high: cc[1].high_price,
-        low: cc[1].low_price,
-        close: cc[1].trade_price,
-        volume: cc[1].candle_acc_trade_volume,
-        timestamp: new Date(cc[1].candle_date_time_utc + '+00:00').getTime(),
-      })
-      this.t.end()
-    }
-  }
-
-  start = null
-
-  finish(): Promise<void> {
-    return
-  }
-
-  onTrade = null
-  onOrderbook = null
-  onTicker = null
-}
-
 
 
 class TestBot extends BaseSocketBot {
