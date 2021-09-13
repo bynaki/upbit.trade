@@ -58,15 +58,6 @@ export interface DbCandleMinuteType extends Iu.CandleMinuteType {
   candle_acc_trade_volume: any
 }
 
-// export async function readyDb<T>(filename: string, tableName: string): Promise<DbTable<T>> {
-//   const db = new Database(filename)
-//   const table = db.ready<T>(tableName)
-//   if(table === null) {
-//     throw new Error(`'${filename}' 데이터베이스에 '${tableName}' 테이블이 없다.`)
-//   }
-//   return table
-// }
-
 function subset(a: string[], b: string[]) {
   return a.every(i => b.some(j => i === j))
 }
@@ -211,13 +202,18 @@ export class DbTable<T, TT extends TableType> {
     return this.tt
   }
 
-  async * each(): AsyncGenerator<T> {
-    const length = 500
+  async * each(code?: string): AsyncGenerator<T> {
+    const length = 100000
     let offset = 0
     let trs = []
     const orderBy = (await this.getType()).order_by
     do {
-      trs = await this.get(orderBy, offset, length)
+      trs = await this.get({
+        orderBy,
+        length,
+        code,
+        offset,
+      })
       for(let tr of trs) {
         yield tr
       }
@@ -225,12 +221,39 @@ export class DbTable<T, TT extends TableType> {
     } while(trs.length !== 0)
   }
 
-  async get(orderBy: string, offset: number, length: number): Promise<T[]> {
-    const sql = `SELECT * FROM ${this.tableName}
-      ORDER BY ${orderBy} ASC
-      LIMIT ${length} OFFSET ${offset}`
-    return this.db.all(sql)
-    // return (await this.db.all(sql)).map(d => this.toNativeValues(d))
+  async get(params: {
+    orderBy: string
+    length: number
+    code?: string
+    offset?: number
+  }): Promise<T[]> {
+    let {orderBy, length, code, offset} = params
+    if(offset === undefined) {
+      offset = 0
+    }
+    if(code) {
+      const sql = `SELECT * FROM ${this.tableName}
+        WHERE market = '${code}'
+        ORDER BY ${orderBy} ASC
+        LIMIT ${length} OFFSET ${offset}`
+      return this.db.all(sql)
+    } else {
+      const sql = `SELECT * FROM ${this.tableName}
+        ORDER BY ${orderBy} ASC
+        LIMIT ${length} OFFSET ${offset}`
+      return this.db.all(sql)
+    }
+  }
+
+  async count(code?: string): Promise<number> {
+    let sql: string
+    if(code) {
+      sql = `SELECT COUNT(*) FROM ${this.tableName}
+        WHERE market = '${code}'`
+    } else {
+      sql = `SELECT COUNT(*) FROM ${this.tableName}`
+    }
+    return (await this.db.get(sql))['COUNT(*)']
   }
 
   // private toNativeValues(val: {

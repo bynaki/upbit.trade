@@ -186,7 +186,7 @@ export class UPbitCandleMock extends BaseUPbitSocket {
       high: dbCandle.high_price,
       low: dbCandle.low_price,
       open: dbCandle.opening_price,
-      timestamp: dbCandle.timestamp,
+      timestamp: new Date(dbCandle.candle_date_time_utc + '+00:00').getTime(),
       volume: toNumber(dbCandle.candle_acc_trade_volume),
     }
   }

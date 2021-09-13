@@ -12,10 +12,13 @@ import {
   CandleTableType,
   DbCandleMinuteType,
   DbTradeTickType,
+  getConfig,
   readyCandle,
   readyTrade,
   TradeTableType,
+  UPbitSequence,
 } from '../src'
+import { toNumber } from 'lodash'
 
 
 
@@ -50,6 +53,7 @@ test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은�
 
 {
   let type: TradeTableType
+
   test.serial('readyTrade(): api에서 trade 데이터를 가져와 데이터베이스에 저장하고 시간 순서대로 가져온다.', async t => {
     const params = {
       daysAgo: 0,
@@ -107,6 +111,33 @@ test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은�
     }
     t.is(got.trade_time_utc, '00:00:29')
   })
+
+  test.serial('readyTrade(): code별로 가져올 수 있다.', async t => {
+    const params = {
+      daysAgo: 0,
+      to: '00:00:30',
+      codes,
+    }
+    const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade', params)
+    for await (const got of db.each(codes[0])) {
+      t.is(got.market, codes[0])
+    }
+  })
+
+  test.serial('readyTrade(): count를 구할 수 있다.', async t => {
+    const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade')
+    let count = 0
+    for await (const tr of db.each()) {
+      count++
+    }
+    t.is(await db.count(), count)
+    count = 0
+    for await (const tr of db.each(codes[0])) {
+      count++
+    }
+    t.is(await db.count(codes[0]), count)
+  })
+
 }
 
 {
@@ -186,79 +217,189 @@ test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은�
     t.is(candles[0].unit, 1)
     t.is(candles[candles.length - 1].candle_date_time_utc, '2021-08-24T00:04:00')
   })
+
+  test.serial('readyCandle(): code별로 가져올 수 있다.', async t => {
+    const params = {
+      comins,
+      from: '2021-08-24T00:00:00+00:00',
+      to: '2021-08-24T00:05:00+00:00',
+    }
+    const db = await readyCandle(join(__dirname, 'test-db.db'), 'candle', params)
+    t.not((await db.getType()).create_date, type.create_date)
+    const candles: DbCandleMinuteType[] = []
+    for await (let got of db.each(codes[0])) {
+      candles.push(got)
+    }
+    t.is(candles.length, 5)
+    candles.forEach(c => {
+      t.is(c.market, codes[0])
+    })
+  })
+
+  test.serial('readyCandle(): count를 구할 수 있다.', async t => {
+    const db = await readyCandle(join(__dirname, 'test-db.db'), 'candle')
+    t.is(await db.count(), 20)
+    t.is(await db.count(codes[0]), 5)
+  })
+
 }
 
-// test.serial('TradeDb#get()', async t => {
-//   const db = new TradeDb(join(__dirname, 'trade.db'))
-//   await db.ready(codes, {
-//     daysAgo: 0,
-//     to: '00:03:00',
-//   })
-//   const count = await db.count(codes[0])
-//   const length = Math.floor(count / 3)
-//   const res: Iu.TradeTickType[] = []
-//   res.push(...await db.get(codes[0], length * 0, length))
-//   res.push(...await db.get(codes[0], length * 1, length))
-//   res.push(...await db.get(codes[0], length * 2, length))
-//   const remain = await db.get(codes[0], length * 3, length)
-//   t.is(res.length, length * 3)
-//   t.is(remain.length, count % 3)
-//   t.deepEqual(Object.keys(res[0]), [
-//     'market',
-//     'trade_date_utc',
-//     'trade_time_utc',
-//     'timestamp',
-//     'trade_price',
-//     'trade_volume',
-//     'prev_closing_price',
-//     'change_price',
-//     'ask_bid',
-//     'sequential_id',
-//   ])
-//   t.is(res[0].market, codes[0])
-//   const nothing = await db.get(codes[0], length * 4, length)
-//   t.is(nothing.length, 0)
-// })
+test.serial('DbTable#get()', async t => {
+  const params = {
+    daysAgo: 0,
+    to: '00:01:00',
+    codes,
+  }
+  const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade', params)
+  const count = await db.count(codes[0])
+  const length = Math.floor(count / 3)
+  const res: DbTradeTickType[] = []
+  res.push(...await db.get({
+    code: codes[0],
+    offset: length * 0,
+    length,
+    orderBy: 'sequential_id',
+  }))
+  res.push(...await db.get({
+    code: codes[0],
+    offset: length * 1,
+    length,
+    orderBy: 'sequential_id',
+  }))
+  res.push(...await db.get({
+    code: codes[0],
+    offset: length * 2,
+    length,
+    orderBy: 'sequential_id',
+  }))
+  const remain = await db.get({
+    code: codes[0],
+    offset: length * 3,
+    length,
+    orderBy: 'sequential_id',
+  })
+  t.is(res.length, length * 3)
+  t.is(remain.length, count % 3)
+  t.deepEqual(Object.keys(res[0]), [
+    'market',
+    'trade_date_utc',
+    'trade_time_utc',
+    'timestamp',
+    'trade_price',
+    'trade_volume',
+    'prev_closing_price',
+    'change_price',
+    'ask_bid',
+    'sequential_id',
+  ])
+  t.is(res[0].market, codes[0])
+  const nothing = await db.get({
+    code: codes[0],
+    offset: length * 4,
+    length,
+    orderBy: 'sequential_id',
+  })
+  t.is(nothing.length, 0)
+})
 
-// test.serial('TradeDb#each()', async t => {
-//   const db = new TradeDb(join(__dirname, 'trade.db'))
-//   await db.ready()
-//   for(let i = 0; i < 4; i++) {
-//     let count = 0
-//     const nas = (await api.allTradesTicks({
-//       market: codes[i],
-//       daysAgo: 0,
-//       to: '00:03:00',
-//     })).reverse()
-//     for await (let tr of db.each(codes[i])) {
-//       t.deepEqual(tr, nas[count])
-//       count += 1
-//     }
-//     t.true(count > 0)
-//     t.is(count, await db.count(codes[i]))
-//   }
-// })
+function toTradeTickType(dbType: DbTradeTickType): Iu.TradeTickType {
+  return Object.assign(dbType, {trade_volume: toNumber(dbType.trade_volume)})
+}
 
-// test.serial.skip('TradeDb#each() long', async t => {
-//   t.timeout(1000000)
-//   // await removeSync(join(__dirname, 'test-long.db'))
-//   const db = new TradeDb(join(__dirname, 'test-long.db'))
-//   await db.ready(['KRW-BTC'], {
-//     daysAgo: 1,
-//     to: '00:00:10',
-//   })
-//   let count = 0
-//   let pre: Iu.TradeTickType = null
-//   for await (let tr of db.each('KRW-BTC')) {
-//     if(pre) {
-//       t.true(pre.sequential_id < tr.sequential_id)
-//     }
-//     count += 1
-//     pre = tr
-//   }
-//   t.true(count > 0)
-//   t.is(count, await db.count('KRW-BTC'))
-// })
+function toCandleType(dbType: DbCandleMinuteType): Iu.CandleMinuteType {
+  return Object.assign(dbType, {
+    candle_acc_trade_price: toNumber(dbType.candle_acc_trade_price),
+    candle_acc_trade_volume: toNumber(dbType.candle_acc_trade_volume),
+  })
+}
+
+{
+  const api = new UPbitSequence(getConfig().upbit_keys)
+
+  test.serial('DbTable#each(): trade', async t => {
+    const params = {
+      daysAgo: 0,
+      to: '00:01:00',
+      codes,
+    }
+    const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade', params)
+    for(let i = 0; i < codes.length; i++) {
+      let count = 0
+      const nas = (await api.allTradesTicks({
+        market: codes[i],
+        daysAgo: 0,
+        to: '00:01:00',
+      })).reverse()
+      for await (let tr of db.each(codes[i])) {
+        t.deepEqual(toTradeTickType(tr), nas[count])
+        count += 1
+      }
+      t.true(count > 0)
+      t.is(count, await db.count(codes[i]))
+    }
+  })
+
+  const comins = codes.map(c => c + ':1')
+  test.serial('DbTable#each(): candle', async t => {
+    const params = {
+      comins,
+      from: '2021-08-24T00:00:00+00:00',
+      to: '2021-08-24T00:10:00+00:00',
+    }
+    const db = await readyCandle(join(__dirname, 'test-db.db'), 'candle', params)
+    for(let code of codes) {
+      let count = 0
+      const nas = (await api.allCandlesMinutes(1, {
+        market: code,
+        from: '2021-08-24T00:00:00+00:00',
+        to: '2021-08-24T00:10:00+00:00',
+      })).reverse()
+      for await (const c of db.each(code)) {
+        t.deepEqual(toCandleType(c), nas[count])
+        count++
+      }
+      t.is(count, 10)
+    }
+  })
+
+  test.serial('DbTable#each(): trade long', async t => {
+    const params = {
+      daysAgo: 1,
+      to: '00:01:00',
+      codes: ['KRW-BTC'],
+    }
+    const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade_long', params)
+    let pre: DbTradeTickType
+    let count = 0
+    for await (const tr of db.each()) {
+      if(pre) {
+        t.true(pre.sequential_id < tr.sequential_id)
+      }
+      pre = tr
+      count++
+    }
+    t.is(await db.count(), count)
+    console.log(`trade long count: ${count}`)
+  })
+
+  test.serial('DbTable#each(): candle long', async t => {
+    const db = await readyCandle(join(__dirname, 'test-db.db'), 'candle_long', {
+      comins: ['KRW-BTC:1'],
+      from: '2021-09-12T00:00:00+00:00',
+      to: '2021-09-13T00:00:00+00:00',
+    })
+    let count = 0
+    for await (const c of db.each()) {
+      const time = new Date('2021-09-12T00:00:00+00:00').getTime() + (1000 * 60 * count)
+      t.is(new Date(c.candle_date_time_utc + '+00:00').getTime(), time)
+      count++
+    }
+    t.is(count, 60 * 24)
+  })
+
+}
+
+
 
 
 // test.serial('CandleDb#ready(): error', async t => {
