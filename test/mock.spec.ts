@@ -316,14 +316,14 @@ test.serial('UPbitTradeMock: mock 모드에서는 onTicker()와 onOrderbook()을
   }
 })
 
-test.serial('UPbitTradeMock', async t => {
+test.serial.only('UPbitTradeMock', async t => {
   const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'trade', {
     daysAgo: 0,
     to: '00:00:10',
   })
   mock.addBotClass(TestTradeBot, [
     'KRW-BTC',
-    'KRW-ETH',
+    // 'KRW-ETH',
   ])
   const bots: TestTradeBot[] = mock.getBots(I.ReqType.Trade)
   bots.forEach(bot => bot.setTestObject(t))

@@ -1,7 +1,6 @@
 import * as I from './types'
 import {
   Logger,
-  // FileWriter,
 } from 'fourdollar'
 import {
   BaseUPbitSocket,

@@ -136,7 +136,6 @@ export interface Config {
   markets: string[]
 }
 
-
 export interface HistoryType {
   bid: (Iu.OrderDetailType)[]
   ask: (Iu.OrderDetailType)[]

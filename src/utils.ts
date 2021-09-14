@@ -7,6 +7,7 @@ import {
 } from 'cryptocurrency.api'
 
 
+
 export function getConfig(fileName: string = './config.json'): I.Config {
   return JSON.parse((readFileSync(fileName)).toString())
 }
@@ -71,7 +72,6 @@ export async function allMarketCode(
 
 export class OHLCMaker {
   private vector: I.OHLCType[] = []
-  private ready = false
   private preTime: number = -1
 
   constructor(public readonly limit: number) {}

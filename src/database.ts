@@ -26,7 +26,6 @@ type SqlMasterType = {
   sql: string
 }
 
-
 export interface TableType {
   name: string
   create_date: number

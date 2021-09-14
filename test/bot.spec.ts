@@ -7,9 +7,7 @@ import {
   BaseSocketBot,
   types as I,
   addCandleListener,
-  UPbitTradeMock,
-  UPbitSequence,
-  getConfig,
+  BaseUPbitSocket,
 } from '../src'
 import $4 from 'fourdollar'
 import {
@@ -21,9 +19,6 @@ import {
 import {
   remove, removeSync,
 } from 'fs-extra'
-import {
-  format
-} from 'fecha'
 
 
 
@@ -46,7 +41,7 @@ test('UPbitSocket#addBot(): 이름이 같으면 추가되지 않는다.', t => {
   us.addBot(new TestBot('KRW-BTC'))
   us.addBot(new TestBot('KRW-BTC'))
   t.is(us.getBots().length, 1)
-  console.log(us.getBots().map(b => b.name))
+  // console.log(us.getBots().map(b => b.name))
 })
 
 test('UPbitSocket#addBot(): 같은 클래스라도 이름이 다르면 추가된다.', t => {
@@ -525,8 +520,8 @@ class TestCandleQueueBot extends BaseSocketBot {
       return
     }
     await $4.stop(1000)
-    console.log(ohlc)
-    console.log(this.tr)
+    // console.log(ohlc)
+    // console.log(this.tr)
     this.t.true(ohlc[0].close === this.tr.trade_price)
   }
 
@@ -573,6 +568,7 @@ class TestLatestBot extends BaseSocketBot {
 class TestLogBot extends BaseSocketBot {
   private _t: CbExecutionContext
   private _origin
+  private socket: BaseUPbitSocket
 
   constructor(code: string, t: CbExecutionContext) {
     super(code)
@@ -580,7 +576,8 @@ class TestLogBot extends BaseSocketBot {
     this._t.plan(2)
   }
   
-  async start() {
+  async start(socket: BaseUPbitSocket) {
+    this.socket = socket
     this._origin = TestLogBot.writer
     TestLogBot.writer = new $4.FileWriter(join(__dirname, 'log', 'test.log'), '1d')
     this._t.pass()
@@ -594,6 +591,7 @@ class TestLogBot extends BaseSocketBot {
     this._t.regex(contents.toString(), reg)
     TestLogBot.writer = this._origin
     this._t.end()
+    await this.socket.close()
   }
 
   onOrderbook = null

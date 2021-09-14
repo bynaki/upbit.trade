@@ -6,7 +6,6 @@ import {
 } from './base.bot'
 import {
   Logger,
-  // FileWriter,
 } from 'fourdollar'
 import {
   Order,

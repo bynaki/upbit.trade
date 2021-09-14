@@ -8,16 +8,13 @@ import {
   OrderHistory,
   api,
 } from '../src'
-import {
-  stop,
-} from 'fourdollar'
-import { RequestError } from 'cryptocurrency.api'
+
 
 /**
  * 지정가 매수매도
  * -- 실제로 거래됨 주의 --
  */
-if(true) {
+if(false) {
   const order = new Order('KRW-BTC')
 
   test.serial('order > #bid(): low price', async t => {

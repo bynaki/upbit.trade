@@ -3,7 +3,6 @@ import {
   BaseSocketBot,
   AbstractOrderMarket,
   types as I,
-  DbTable,
   DbTradeTickType,
   DbCandleMinuteType,
   readyTrade,
@@ -102,13 +101,6 @@ export class UPbitTradeMock extends BaseUPbitSocket {
   close = null
 }
 
-
-
-class WrapMockBot {
-  constructor(private readonly bot: BaseSocketBot) {}
-
-  insert(min: 1|3|5|15|10|30|60|240, ohlc: OHLCType) {}
-}
 
 
 export class UPbitCandleMock extends BaseUPbitSocket {
