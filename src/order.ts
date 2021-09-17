@@ -49,14 +49,14 @@ abstract class BaseOrder {
     return this.statusAsk || this.statusBid
   }
 
-  get statusBid(): Iu.OrderDetailType {
+  get statusBid(): I.OrderDetailType {
     if(this._history.bid.length === 0) {
       return null
     }
     return this._history.bid[this._history.bid.length - 1]
   }
 
-  get statusAsk(): Iu.OrderDetailType {
+  get statusAsk(): I.OrderDetailType {
     if(this._history.ask.length === 0) {
       return null
     }
@@ -89,24 +89,24 @@ abstract class BaseOrder {
     return this._isTerminated
   }
 
-  async updateStatus(): Promise<Iu.OrderDetailType> {
+  async updateStatus(): Promise<I.OrderDetailType> {
     return await this.updateStatusAsk() || await this.updateStatusBid()
   }
 
-  async updateStatusBid(): Promise<Iu.OrderDetailType> {
+  async updateStatusBid(): Promise<I.OrderDetailType> {
     if(!this.statusBid) {
       return null
     }
     this.updateHistory((await api.getOrderDetail({uuid: this.statusBid.uuid})).data)
-    return this.statusBid as Iu.OrderDetailType
+    return this.statusBid as I.OrderDetailType
   }
 
-  async updateStatusAsk(): Promise<Iu.OrderDetailType> {
+  async updateStatusAsk(): Promise<I.OrderDetailType> {
     if(!this.statusAsk) {
       return null
     }
     this.updateHistory((await api.getOrderDetail({uuid: this.statusAsk.uuid})).data)
-    return this.statusAsk as Iu.OrderDetailType
+    return this.statusAsk as I.OrderDetailType
   }
 
   async wait(args: {
@@ -115,7 +115,7 @@ abstract class BaseOrder {
   } = {
     ms: 300,
     timeout: 20,
-  }, cb?: (status: Iu.OrderDetailType) => void) {
+  }, cb?: (status: I.OrderDetailType) => void) {
     if(args === null) {
       args = {
         ms: 300,
@@ -136,7 +136,7 @@ abstract class BaseOrder {
     return this.status
   }
 
-  async cancel(): Promise<Iu.OrderType> {
+  async cancel(): Promise<I.OrderType> {
     if(!this.status) {
       return null
     }
@@ -155,7 +155,7 @@ abstract class BaseOrder {
     }
   }
 
-  async cancelWaiting(ms: number = 300, timeout: number = 20): Promise<Iu.OrderType> {
+  async cancelWaiting(ms: number = 300, timeout: number = 20): Promise<I.OrderType> {
     if(!this.status) {
       return null
     }
@@ -228,8 +228,8 @@ abstract class BaseOrder {
     return json
   }
 
-  protected updateHistory(status: Iu.OrderType | Iu.OrderDetailType) {
-    const s = status as Iu.OrderDetailType
+  protected updateHistory(status: I.OrderType | I.OrderDetailType) {
+    const s = status as I.OrderDetailType
     if(!s.trades) {
       Object.assign(s, {trades: []})
     }
@@ -254,13 +254,13 @@ abstract class BaseOrder {
 
 
 export abstract class AbstractOrder extends BaseOrder {
-  abstract bid(price: number, volume: number, err?: (err) => void): Promise<Iu.OrderType>
+  abstract bid(price: number, volume: number, err?: (err) => void): Promise<I.OrderType>
   abstract ask(price: number, err?: (err) => void)
 }
 
 export abstract class AbstractOrderMarket extends BaseOrder {
-  abstract bid(price: number, err?: (err) => void): Promise<Iu.OrderType>
-  abstract ask(err?: (err) => void): Promise<Iu.OrderType>
+  abstract bid(price: number, err?: (err) => void): Promise<I.OrderType>
+  abstract ask(err?: (err) => void): Promise<I.OrderType>
 }
 
 
@@ -284,7 +284,7 @@ export class Order extends AbstractOrder {
    * @param err error 콜백
    * @returns 
    */
-  async bid(price: number, volume: number, err?: (err) => void): Promise<Iu.OrderType> {
+  async bid(price: number, volume: number, err?: (err) => void): Promise<I.OrderType> {
     const status = await this.updateStatus()
     if(!status || (status.side === 'bid' && status.ord_type === 'limit' && status.state === 'cancel')) {
       try {
@@ -363,7 +363,7 @@ export class OrderMarket extends AbstractOrderMarket {
    * @param err error 콜백
    * @returns 
    */
-  async bid(price: number, err?: (err) => void): Promise<Iu.OrderType> {
+  async bid(price: number, err?: (err) => void): Promise<I.OrderType> {
     const status = await this.updateStatus()
     if(!status || (status.side === 'bid' && status.state === 'cancel')) {
       try {
@@ -390,7 +390,7 @@ export class OrderMarket extends AbstractOrderMarket {
    * @param err error 콜백
    * @returns 
    */
-  async ask(err?: (err) => void): Promise<Iu.OrderType> {
+  async ask(err?: (err) => void): Promise<I.OrderType> {
     const status = await this.updateStatus()
     if(!status) {
       return null

@@ -152,7 +152,7 @@ export abstract class BaseSocketBot extends Logger {
     }
   }
 
-  abstract start<S extends BaseUPbitSocket>(socket: S): Promise<void>
+  abstract start(socket: BaseUPbitSocket): Promise<void>
   abstract finish(): Promise<void>
   abstract onTrade(data: I.TradeType): Promise<void>
   abstract onOrderbook(data: I.OrderbookType): Promise<void>

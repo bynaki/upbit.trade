@@ -140,6 +140,7 @@ export class UPbitSocket extends BaseUPbitSocket {
   static url = 'wss://api.upbit.com/websocket/v1'
 
   private _ws: WebSocket = null
+  private _exit: boolean = false
   private _uuid: string
 
   constructor(private readonly pingSec: number = 120 * 1000) {
@@ -189,6 +190,8 @@ export class UPbitSocket extends BaseUPbitSocket {
         if(this._ws !== null) {
           this.log('resume -----')
           this.resume()
+        } else if(this._exit) {
+          global.process.exit()
         }
       })
       ws.on('pong', data => {
@@ -210,12 +213,14 @@ export class UPbitSocket extends BaseUPbitSocket {
     })
   }
 
-  async close(): Promise<boolean> {
+  async close(exit: boolean = false): Promise<boolean> {
     if(this._ws) {
       const ws = this._ws
       this._ws = null
+      await this.finish()
       ws.terminate()
-      return this.finish()
+      this._exit = exit
+      return true
     } else {
       return false
     }

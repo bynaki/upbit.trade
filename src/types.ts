@@ -15,6 +15,7 @@ import {
   upbit_types as Iu
 } from 'cryptocurrency.api'
 
+
 export {
   OpenEvent,
   ErrorEvent,
@@ -161,3 +162,6 @@ export interface OHLCType {
 export enum EventType {
   Candle = 'candle',
 }
+
+export interface OrderType extends Iu.OrderType {}
+export interface OrderDetailType extends Iu.OrderDetailType {}

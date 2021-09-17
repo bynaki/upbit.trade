@@ -27,6 +27,8 @@ class TradeBot extends BaseSocketBot {
       console.log(tr)
       this.count = 0
       this.preTime = floorTime
+      console.log('latest:')
+      console.log(this.latest(I.ReqType.Trade))
     }
   }
 
