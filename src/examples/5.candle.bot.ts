@@ -3,7 +3,7 @@
  */
 
 import {
-  BaseSocketBot,
+  BaseBot,
   UPbitSocket,
   types as I,
   addCandleListener,
@@ -11,7 +11,7 @@ import {
 
 
 
-class TestCandleBot extends BaseSocketBot {
+class TestCandleBot extends BaseBot {
   constructor(code: string) {
     super(code)
   }

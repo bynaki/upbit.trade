@@ -15,7 +15,7 @@ import {
 
 
 
-export abstract class BaseSocketBot extends Logger {
+export abstract class BaseBot extends Logger {
   private _queue: {
     trade: I.ResType[]
     orderbook: I.ResType[]
@@ -160,6 +160,7 @@ export abstract class BaseSocketBot extends Logger {
 }
 
 
+
 const listeners: {
   [key: string]: {
     [key: string]: {
@@ -174,7 +175,7 @@ const listeners: {
 //   minutes: number
 //   limit: number
 // }): void
-function addEventListener<B extends BaseSocketBot, E extends I.EventType>(
+function addEventListener<B extends BaseBot, E extends I.EventType>(
   target: B , event: E , callback , args?) {
   if(!listeners[target.constructor.name]) {
     listeners[target.constructor.name] = {}
@@ -190,12 +191,12 @@ function addEventListener<B extends BaseSocketBot, E extends I.EventType>(
 
 
 type DecoCandleListenerType = {
-  (minutes: number, limit: number)
-  : (target: BaseSocketBot, property: string, descriptor: PropertyDescriptor) => PropertyDescriptor
+  (minutes: 1|3|5|10|15|30|60|240, limit: number)
+  : (target: BaseBot, property: string, descriptor: PropertyDescriptor) => PropertyDescriptor
 }
 
-export const addCandleListener: DecoCandleListenerType = (minutes: number, limit: number) => {
-  return (target: BaseSocketBot, property: string, descriptor: PropertyDescriptor) => {
+export const addCandleListener: DecoCandleListenerType = (minutes: 1|3|5|10|15|30|60|240, limit: number) => {
+  return (target: BaseBot, property: string, descriptor: PropertyDescriptor) => {
     addEventListener(target, I.EventType.Candle, property, {
       minutes,
       limit,

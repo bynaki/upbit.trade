@@ -2,7 +2,7 @@ import WebSocket from 'ws'
 import { v4 as uuidv4 } from 'uuid'
 import * as I from './types'
 import {
-  BaseSocketBot
+  BaseBot
 } from './base.bot'
 import {
   Logger,
@@ -17,7 +17,7 @@ import { uniq } from 'lodash'
 
 
 
-type Constructor<B extends BaseSocketBot> = new (code: string) => B
+type Constructor<B extends BaseBot> = new (code: string) => B
 
 
 
@@ -25,13 +25,13 @@ export abstract class BaseUPbitSocket extends Logger {
   private _isStarted = false
   private _botConst: {
     trade: {
-      [index: string]: BaseSocketBot[]
+      [index: string]: BaseBot[]
     }
     orderbook: {
-      [index: string]: BaseSocketBot[]
+      [index: string]: BaseBot[]
     }
     ticker: {
-      [index: string]: BaseSocketBot[]
+      [index: string]: BaseBot[]
     }
   } = {
     trade: {},
@@ -43,12 +43,12 @@ export abstract class BaseUPbitSocket extends Logger {
     super()
   }
 
-  getBots<T extends BaseSocketBot>(): T[]
-  getBots<T extends BaseSocketBot>(req: I.ReqType): T[]
-  getBots<T extends BaseSocketBot>(req: I.ReqType, code?: string): T[]
-  getBots(req?: I.ReqType, code?: string): BaseSocketBot[] {
+  getBots<T extends BaseBot>(): T[]
+  getBots<T extends BaseBot>(req: I.ReqType): T[]
+  getBots<T extends BaseBot>(req: I.ReqType, code?: string): T[]
+  getBots(req?: I.ReqType, code?: string): BaseBot[] {
     if(!req) {
-      const bots: BaseSocketBot[] = []
+      const bots: BaseBot[] = []
       bots.push(...this.getBots(I.ReqType.Trade))
       bots.push(...this.getBots(I.ReqType.Orderbook))
       bots.push(...this.getBots(I.ReqType.Ticker))
@@ -65,23 +65,23 @@ export abstract class BaseUPbitSocket extends Logger {
     return this._botConst[req][code]
   }
 
-  addBotClass<B extends BaseSocketBot>(botClass: Constructor<B>, codes: string[]) {
+  addBotClass<B extends BaseBot>(botClass: Constructor<B>, codes: string[]) {
     return this.addBot(...codes.map(code => new botClass(code)))
   }
 
-  addBot<B extends BaseSocketBot>(...bots: B[]) {
+  addBot<B extends BaseBot>(...bots: B[]) {
     bots.forEach(b => this._addBot(b))
   }
 
-  newOrder<B extends BaseSocketBot>(bot: B): AbstractOrder {
+  newOrder<B extends BaseBot>(bot: B): AbstractOrder {
     return new Order(bot.code)
   }
 
-  newOrderMarket<B extends BaseSocketBot>(bot: B): AbstractOrderMarket {
+  newOrderMarket<B extends BaseBot>(bot: B): AbstractOrderMarket {
     return new OrderMarket(bot.code)
   }
 
-  private _addBot<B extends BaseSocketBot>(bot: B) {
+  private _addBot<B extends BaseBot>(bot: B) {
     if(bot.onTrade || bot.hasCandleEvent) {
       if(!this._botConst.trade[bot.code]) {
         this._botConst.trade[bot.code] = []

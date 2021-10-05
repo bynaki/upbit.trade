@@ -2,7 +2,7 @@ import test, {
   ExecutionContext,
 } from 'ava'
 import {
-  BaseSocketBot,
+  BaseBot,
   types as I,
   OrderMarket,
   UPbitTradeMock,
@@ -23,7 +23,7 @@ import {
 
 
 
-class TestErrorBot extends BaseSocketBot {
+class TestErrorBot extends BaseBot {
   constructor(code: string) {
     super(code)
   }
@@ -35,7 +35,7 @@ class TestErrorBot extends BaseSocketBot {
   finish = null
 }
 
-class TestTradeBot extends BaseSocketBot {
+class TestTradeBot extends BaseBot {
   public pre: I.TradeType = null
   public count = 0
   public started = 0
@@ -90,7 +90,7 @@ class TestTradeBot extends BaseSocketBot {
 
 
 
-class TestOrderBot extends BaseSocketBot {
+class TestOrderBot extends BaseBot {
   private order: OrderMarket
 
   constructor(code: string, private readonly t: ExecutionContext) {
@@ -154,7 +154,7 @@ class TestOrderBot extends BaseSocketBot {
 
 
 
-class TestTradeCandleBot extends BaseSocketBot {
+class TestTradeCandleBot extends BaseBot {
   t: ExecutionContext
   ohlcs: I.OHLCType[] = []
   done = false
@@ -217,7 +217,7 @@ class TestTradeCandleBot extends BaseSocketBot {
 
 
 
-class TestCandleBot extends BaseSocketBot {
+class TestCandleBot extends BaseBot {
   t: ExecutionContext
   ohlcs: I.OHLCType[] = []
 

@@ -5,6 +5,8 @@ import * as I from './types'
 import {
   UPbit
 } from 'cryptocurrency.api'
+import { isNumber, isString } from 'lodash'
+import { format } from 'fecha'
 
 
 
@@ -53,10 +55,6 @@ export function floorOrderbook(price: number) {
 
 export async function allMarketCode(
   opt: {reg: RegExp, exceptWarnig: boolean} = {reg: /^KRW/, exceptWarnig: true}) {
-  const api = new UPbit({
-    accessKey: 'xxx',
-    secretKey: 'xxx',
-  })
   const res = (await api.getMarket(opt.exceptWarnig)).data
   return res.filter(m => opt.reg.test(m.market))
     .filter(m => {
@@ -67,6 +65,41 @@ export async function allMarketCode(
     }).map(m => m.market)
 }
 
+export async function tickers(codes: string[], sort?: string) {
+  const res = (await api.getTicker({markets: codes})).data
+  if(sort) {
+    if(isNumber(res[0][sort])) {
+      return res.sort((a, b) => b[sort] - a[sort])
+    }
+    if(isString(res[0][sort])) {
+      return res.sort((a, b) => {
+        const array = [a[sort], b[sort]].sort().reverse()
+        if(array[0] === a[sort]) {
+          return 1
+        } else {
+          return -1
+        }
+      })
+    }
+  }
+  return res
+}
+
+
+export function agoMinutes(min: number, time: number = null) {
+  if(time === null) {
+    time = Date.now()
+  }
+  return new Date(time - (1000 * 60 * min))
+}
+
+export function agoHours(hours: number, time: number = null) {
+  return agoMinutes(hours * 60)
+}
+
+export function isoDateTime(date: Date): string {
+  return format(date, 'isoDateTime')
+}
 
 
 

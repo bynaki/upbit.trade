@@ -3,14 +3,14 @@
  */
 
 import {
-  BaseSocketBot,
+  BaseBot,
   UPbitSocket,
   types as I,
 } from '../index'
 
 
 
-class TestLatestDatasBot extends BaseSocketBot {
+class TestLatestDatasBot extends BaseBot {
   socket: UPbitSocket
 
   constructor(code: string) {

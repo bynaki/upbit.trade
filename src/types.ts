@@ -159,6 +159,11 @@ export interface OHLCType {
   timestamp: number
 }
 
+export interface PriceTimeType {
+  price: number
+  timestamp: number
+}
+
 export enum EventType {
   Candle = 'candle',
 }

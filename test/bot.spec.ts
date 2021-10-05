@@ -4,7 +4,7 @@ import test, {
 import WebSocket from 'ws'
 import {
   UPbitSocket,
-  BaseSocketBot,
+  BaseBot,
   types as I,
   addCandleListener,
   BaseUPbitSocket,
@@ -235,7 +235,7 @@ test.before(() => {
 
 
 
-class TestBot extends BaseSocketBot {
+class TestBot extends BaseBot {
   constructor(code: string) {
     super(code)
   }
@@ -251,7 +251,7 @@ class TestBot extends BaseSocketBot {
 
 
 
-class TestBot2 extends BaseSocketBot {
+class TestBot2 extends BaseBot {
   constructor(code: string) {
     super(code)
   }
@@ -267,7 +267,7 @@ class TestBot2 extends BaseSocketBot {
   onTicker = null
 }
 
-class TestBot3 extends BaseSocketBot {
+class TestBot3 extends BaseBot {
   constructor(code: string) {
     super(code)
   }
@@ -286,7 +286,7 @@ class TestBot3 extends BaseSocketBot {
 
 
 
-class TestTradeBot extends BaseSocketBot {
+class TestTradeBot extends BaseBot {
   private _t: CbExecutionContext
   private _tr: I.TradeType[] = []
 
@@ -341,7 +341,7 @@ class TestTradeBot extends BaseSocketBot {
 
 
 
-class TestOrderbookBot extends BaseSocketBot {
+class TestOrderbookBot extends BaseBot {
   private _t: CbExecutionContext
   private _td: I.OrderbookType[] = []
 
@@ -395,7 +395,7 @@ class TestOrderbookBot extends BaseSocketBot {
 
 
 
-class TestTickerBot extends BaseSocketBot {
+class TestTickerBot extends BaseBot {
   private _t: CbExecutionContext
   private _td: I.TickerType[] = []
 
@@ -453,7 +453,7 @@ class TestTickerBot extends BaseSocketBot {
 
 
 
-class TestQueueBot extends BaseSocketBot {
+class TestQueueBot extends BaseBot {
   private _t: CbExecutionContext
   private _count = 3
   private _datas: I.TradeType[] = []
@@ -496,7 +496,7 @@ class TestQueueBot extends BaseSocketBot {
 
 
 
-class TestCandleQueueBot extends BaseSocketBot {
+class TestCandleQueueBot extends BaseBot {
   private count = 3
   private tr: I.TradeType
 
@@ -532,7 +532,7 @@ class TestCandleQueueBot extends BaseSocketBot {
 
 
 
-class TestLatestBot extends BaseSocketBot {
+class TestLatestBot extends BaseBot {
   private _t: CbExecutionContext
 
   constructor(code: string, t: CbExecutionContext) {
@@ -565,7 +565,7 @@ class TestLatestBot extends BaseSocketBot {
 
 
 
-class TestLogBot extends BaseSocketBot {
+class TestLogBot extends BaseBot {
   private _t: CbExecutionContext
   private _origin
   private socket: BaseUPbitSocket
@@ -601,7 +601,7 @@ class TestLogBot extends BaseSocketBot {
 
 
 
-class IdBot extends BaseSocketBot {
+class IdBot extends BaseBot {
   constructor(code: string, public readonly id: number) {
     super(code)
   }

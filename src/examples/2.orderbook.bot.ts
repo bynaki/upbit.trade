@@ -3,14 +3,14 @@
  */
 
 import {
-  BaseSocketBot,
+  BaseBot,
   UPbitSocket,
   types as I,
 } from '../index'
 
 
 
-class TestOrderbookBot extends BaseSocketBot {
+class TestOrderbookBot extends BaseBot {
   private count = 0
   private socket: UPbitSocket
 

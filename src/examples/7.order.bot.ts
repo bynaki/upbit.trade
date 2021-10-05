@@ -6,16 +6,13 @@
  */
 
 import {
-  BaseSocketBot,
+  BaseBot,
   types as I,
   addCandleListener,
   OrderMarket,
   OrderHistory,
-  UPbitTradeMock,
+  UPbitSocket,
 } from '../index'
-import {
-  join,
-} from 'path'
 
 
 
@@ -30,18 +27,18 @@ function ma(ohlcs: I.OHLCType[]) {
 
 
 
-class TestOrderBot extends BaseSocketBot {
+class TestOrderBot extends BaseBot {
   private order: OrderMarket = null
 
   constructor(code: string) {
     super(code)
   }
 
-  @addCandleListener(5, 12)
+  @addCandleListener(5, 22)
   async Minutes5(ohlcs: I.OHLCType[]) {
-    if(ohlcs.length === 12) {
-      const m1 = ma(ohlcs.slice(1, 11))
-      const m2 = ma(ohlcs.slice(2, 12))
+    if(ohlcs.length === 22) {
+      const m1 = ma(ohlcs.slice(1, 21))
+      const m2 = ma(ohlcs.slice(2, 22))
       if(ohlcs[1].close > m1 && ohlcs[2].close <= m2 && ohlcs[0].close > m1) {
         await this.bid(10000)
       }
@@ -58,14 +55,14 @@ class TestOrderBot extends BaseSocketBot {
         await this.order.bid(price)
         this.order.wait(null, async status => {
           if(status.state !== 'cancel') {
-            const history = new OrderHistory('./history/test.txt')
+            const history = new OrderHistory('./history/order.bot.txt')
             await history.append(this.order.history)
             this.order = null
           }
         })
       } catch(e) {
         this.log(e)
-        const history = new OrderHistory('./history/test.txt')
+        const history = new OrderHistory('./history/order.bot.txt')
         await history.append(this.order.history)
         this.order = null
       }
@@ -80,13 +77,13 @@ class TestOrderBot extends BaseSocketBot {
       try {
         await this.order.ask()
         this.order.wait(null, async status => {
-          const history = new OrderHistory('./history/test.txt')
+          const history = new OrderHistory('./history/order.bot.txt')
           await history.append(this.order.history)
           this.order = null
         })
       } catch(e) {
         this.log(e)
-        const history = new OrderHistory('./history/test.txt')
+        const history = new OrderHistory('./history/order.bot.txt')
         await history.append(this.order.history)
         this.order = null
       }
@@ -101,8 +98,6 @@ class TestOrderBot extends BaseSocketBot {
 }
 
 
-const socket = new UPbitTradeMock(join(__dirname, 'order.db'), 'test_order', {
-  daysAgo: 1,
-})
+const socket = new UPbitSocket()
 socket.addBotClass(TestOrderBot, ['KRW-BTC'])
 socket.open()

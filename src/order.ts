@@ -98,7 +98,7 @@ abstract class BaseOrder {
       return null
     }
     this.updateHistory((await api.getOrderDetail({uuid: this.statusBid.uuid})).data)
-    return this.statusBid as I.OrderDetailType
+    return this.statusBid
   }
 
   async updateStatusAsk(): Promise<I.OrderDetailType> {
@@ -106,7 +106,7 @@ abstract class BaseOrder {
       return null
     }
     this.updateHistory((await api.getOrderDetail({uuid: this.statusAsk.uuid})).data)
-    return this.statusAsk as I.OrderDetailType
+    return this.statusAsk
   }
 
   async wait(args: {

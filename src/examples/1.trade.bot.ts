@@ -3,14 +3,14 @@
 **/
 
 import {
-  BaseSocketBot,
+  BaseBot,
   UPbitSocket,
   types as I,
 } from '../index'
 
 
 
-class TradeBot extends BaseSocketBot {
+class TradeBot extends BaseBot {
   private preTime = -1
   private count = 0
 

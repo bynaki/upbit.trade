@@ -163,7 +163,7 @@ export async function readyCandle(filename: string, tableName: string, params?: 
     high_price: 'INTEGER',
     low_price: 'INTEGER',
     trade_price: 'INTEGER',
-    timestamp: 'INTEGER PRIMARY KEY',
+    timestamp: 'INTEGER',
     candle_acc_trade_price: 'TEXT',
     candle_acc_trade_volume: 'TEXT',
     unit: 'INTEGER'

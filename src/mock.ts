@@ -1,6 +1,6 @@
 import {
   BaseUPbitSocket,
-  BaseSocketBot,
+  BaseBot,
   AbstractOrderMarket,
   types as I,
   DbTradeTickType,
@@ -56,6 +56,10 @@ export class UPbitTradeMock extends BaseUPbitSocket {
     if(this.getCodes(I.ReqType.Orderbook).length !== 0) {
       throw new Error('"mock" 모드에서는 "onOrderbook()" 을 제공하지 않는다.')
     }
+    const bots = this.getBots(I.ReqType.Trade)
+    bots.forEach(bot => {
+      bot['_furtiveCbs'] = []
+    })
     const codes = this.getCodes(I.ReqType.Trade)
     const table = await readyTrade(this.args.filename, this.args.tableName, {
       codes,
@@ -66,16 +70,17 @@ export class UPbitTradeMock extends BaseUPbitSocket {
     for await (let tr of table.each()) {
       const converted = this.convertTradeType(tr)
       const bots = this.getBots(I.ReqType.Trade, converted.code)
+      bots.forEach(b => b['_furtiveCbs'].forEach(cb => cb(tr)))
       await Promise.all(bots.map(bot => bot.trigger(converted)))
     }
     await this.finish()
   }
 
-  newOrderMarket(bot: BaseSocketBot): AbstractOrderMarket {
+  newOrderMarket(bot: BaseBot): AbstractOrderMarket {
     return new OrderMarketMock(bot)
   }
 
-  newOrder(bot: BaseSocketBot): AbstractOrder {
+  newOrder(bot: BaseBot): AbstractOrder {
     throw new Error("'UPbitTradeMock' 모드에서는 'newOrder()'를 지원하지 않는다.")
   }
 
@@ -170,11 +175,11 @@ export class UPbitCandleMock extends BaseUPbitSocket {
     await this.finish()
   }
 
-  newOrderMarket(bot: BaseSocketBot): AbstractOrderMarket {
+  newOrderMarket(bot: BaseBot): AbstractOrderMarket {
     return new OrderMarketMock(bot)
   }
 
-  newOrder(bot: BaseSocketBot): AbstractOrder {
+  newOrder(bot: BaseBot): AbstractOrder {
     throw new Error("'UPbitTradeMock' 모드에서는 'newOrder()'를 지원하지 않는다.")
   }
 
@@ -198,11 +203,14 @@ export class UPbitCandleMock extends BaseUPbitSocket {
  * 시장가 주문 Mock
  */
 class OrderMarketMock extends AbstractOrderMarket {
+  private furtherBids: I.OrderDetailType[] = []
+  private furtherAsks: I.OrderDetailType[] = []
+
   /**
    * 생성자
    * @param bot 
    */
-  constructor(private readonly bot: BaseSocketBot) {
+  constructor(private readonly bot: BaseBot) {
     super(bot.code)
   }
 
@@ -211,10 +219,22 @@ class OrderMarketMock extends AbstractOrderMarket {
   }
 
   async updateStatusBid(): Promise<Iu.OrderDetailType> {
+    if(!this.statusBid) {
+      return null
+    }
+    while(this.furtherBids.length !== 0) {
+      this.updateHistory(this.furtherBids.shift())
+    }
     return this.statusBid
   }
 
   async updateStatusAsk(): Promise<Iu.OrderDetailType> {
+    if(!this.statusAsk) {
+      return null
+    }
+    while(this.furtherAsks.length !== 0) {
+      this.updateHistory(this.furtherAsks.shift())
+    }
     return this.statusAsk
   }
 
@@ -225,8 +245,6 @@ class OrderMarketMock extends AbstractOrderMarket {
   cancel() {
     return this.updateStatus()
   }
-  
-  wait = null
   cancelWaiting = null
 
   /**
@@ -259,36 +277,41 @@ class OrderMarketMock extends AbstractOrderMarket {
           executed_volume: 0,
           trades_count: 0,
         }
-        const status2: Iu.OrderDetailType = {
-          uuid,
-          side: 'bid',
-          ord_type: 'price',
-          price: price,
-          state: 'cancel',
-          market: this.market,
-          created_at: format(new Date(tr.timestamp), 'isoDateTime'),
-          volume: null,
-          remaining_volume: null,
-          reserved_fee: floor(price * 0.0005, 8),
-          remaining_fee: 0,
-          paid_fee: floor(price * 0.0005, 8),
-          locked: 0,
-          executed_volume: floor(volume, 8),
-          trades_count: 1,
-          trades: [
-            {
-              market: this.market,
-              uuid: uuidv4(),
-              price: tr.trade_price,
-              volume: floor(volume, 8),
-              funds: floor(tr.trade_price * volume, 4),
-              created_at: format(new Date(tr.timestamp), 'isoDateTime'),
-              side: 'bid',
-            },
-          ],
-        }
         this.updateHistory(status1)
-        this.updateHistory(status2)
+        const cb = (tr: I.TradeType) => {
+          if(tr.ask_bid === 'ASK') {
+            this.furtherBids.push({
+              uuid,
+              side: 'bid',
+              ord_type: 'price',
+              price: price,
+              state: 'cancel',
+              market: this.market,
+              created_at: format(new Date(tr.timestamp), 'isoDateTime'),
+              volume: null,
+              remaining_volume: null,
+              reserved_fee: floor(price * 0.0005, 8),
+              remaining_fee: 0,
+              paid_fee: floor(price * 0.0005, 8),
+              locked: 0,
+              executed_volume: floor(volume, 8),
+              trades_count: 1,
+              trades: [
+                {
+                  market: this.market,
+                  uuid: uuidv4(),
+                  price: tr.trade_price,
+                  volume: floor(volume, 8),
+                  funds: floor(tr.trade_price * volume, 4),
+                  created_at: format(new Date(tr.timestamp), 'isoDateTime'),
+                  side: 'bid',
+                },
+              ],
+            })
+            this.removeFurtiveCb(cb)
+          }
+        }
+        this.addFurtiveCb(cb)
         return status1
       } catch(e) {
         return this.processError('bid', e, err)
@@ -332,36 +355,41 @@ class OrderMarketMock extends AbstractOrderMarket {
           executed_volume: 0,
           trades_count: 0,
         }
-        const status2: Iu.OrderDetailType = {
-          uuid,
-          side: 'ask',
-          ord_type: 'market',
-          price: null,
-          state: 'done',
-          market: status.market,
-          created_at: format(new Date(tr.timestamp), 'isoDateTime'),
-          volume: floor(volume, 8),
-          remaining_volume: 0,
-          reserved_fee: 0,
-          remaining_fee: 0,
-          paid_fee: floor(tr.trade_price * volume * 0.0005, 8),
-          locked: 0,
-          executed_volume: floor(volume, 8),
-          trades_count: 1,
-          trades: [
-            {
-              market: status.market,
-              uuid: uuidv4(),
-              price: tr.trade_price,
-              volume: floor(volume, 8),
-              funds: floor(tr.trade_price * volume, 4),
-              created_at: format(new Date(tr.timestamp), 'isoDateTime'),
-              side: 'ask',
-            },
-          ],
-        }
         this.updateHistory(status1)
-        this.updateHistory(status2)
+        const cb = (tr: I.TradeType) => {
+          if(tr.ask_bid === 'BID') {
+            this.furtherAsks.push({
+              uuid,
+              side: 'ask',
+              ord_type: 'market',
+              price: null,
+              state: 'done',
+              market: status.market,
+              created_at: format(new Date(tr.timestamp), 'isoDateTime'),
+              volume: floor(volume, 8),
+              remaining_volume: 0,
+              reserved_fee: 0,
+              remaining_fee: 0,
+              paid_fee: floor(tr.trade_price * volume * 0.0005, 8),
+              locked: 0,
+              executed_volume: floor(volume, 8),
+              trades_count: 1,
+              trades: [
+                {
+                  market: status.market,
+                  uuid: uuidv4(),
+                  price: tr.trade_price,
+                  volume: floor(volume, 8),
+                  funds: floor(tr.trade_price * volume, 4),
+                  created_at: format(new Date(tr.timestamp), 'isoDateTime'),
+                  side: 'ask',
+                },
+              ],
+            })
+            this.removeFurtiveCb(cb)
+          }
+        }
+        this.addFurtiveCb(cb)
         return status1
       } catch(e) {
         return this.processError('ask', e, err)
@@ -369,5 +397,17 @@ class OrderMarketMock extends AbstractOrderMarket {
     } else {
       return status
     }
+  }
+
+  private addFurtiveCb(cb: (tr: I.TradeType) => void): boolean {
+    if(this.bot['_furtiveCbs'].some(cc => cc === cb)) {
+      return false
+    }
+    this.bot['_furtiveCbs'].push(cb)
+    return true
+  }
+
+  private removeFurtiveCb(cb: (tr: I.TradeType) => void): void {
+    this.bot['_furtiveCbs'] = this.bot['_furtiveCbs'].filter(cc => cc !== cb)
   }
 }

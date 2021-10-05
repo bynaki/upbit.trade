@@ -3,7 +3,7 @@
  */
 
 import {
-  BaseSocketBot,
+  BaseBot,
   UPbitSocket,
   types as I,
   addCandleListener,
@@ -20,7 +20,7 @@ function ma(ohlcs: I.OHLCType[]) {
 }
 
 
-class TestMABot extends BaseSocketBot {
+class TestMABot extends BaseBot {
   time = -1
 
   constructor(code: string) {
