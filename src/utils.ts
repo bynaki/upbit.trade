@@ -98,7 +98,9 @@ export function agoHours(hours: number, time: number = null) {
 }
 
 export function isoDateTime(date: Date): string {
-  return format(date, 'isoDateTime')
+  const iso = format(date, 'isoDateTime')
+  console.log(iso)
+  return iso
 }
 
 

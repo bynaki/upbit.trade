@@ -154,7 +154,9 @@ export class UPbitCandleMock extends BaseUPbitSocket {
           if(ohlcSeq.length > cb.args.limit) {
             ohlcSeq.pop()
           }
-          return bot[cb.callback](ohlcSeq)
+          const copy: OHLCType[] = []
+          ohlcSeq.forEach(o => copy.push(Object.assign({}, o)))
+          return bot[cb.callback](copy)
         })
       })
     })

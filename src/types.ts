@@ -3,13 +3,13 @@
  */
 
 import {
-  OpenEvent,
   ErrorEvent,
   CloseEvent,
   CONNECTING,
   OPEN,
   CLOSING,
   CLOSED,
+  Event,
 } from 'ws'
 import {
   upbit_types as Iu
@@ -17,7 +17,7 @@ import {
 
 
 export {
-  OpenEvent,
+  Event,
   ErrorEvent,
   CloseEvent,
 }

@@ -79,6 +79,69 @@ class TestEWMABot extends BaseBot {
 }
 
 
+class TestRSI extends BaseBot {
+  rsif: (ohlc: I.OHLCType) => number
+  rsi: number
+  testRsi: number
+
+  constructor(code: string, private readonly t: ExecutionContext) {
+    super(code)
+  }
+
+  async start() {
+    this.rsif = RSI(EWMA(14), EWMA(14))
+  }
+  
+  @addCandleListener(1, 20)
+  on1m(ohlcs: I.OHLCType[]) {
+    this.rsi = this.rsif(ohlcs[0])
+    let us: number[] = []
+    let ds: number[] = []
+    ohlcs.reverse().map(ohlc => ohlc.close).reduce((pre, c) => {
+      if(pre !== 0) {
+        us.push((c > pre)? c - pre : 0)
+        ds.push((c < pre)? pre - c : 0)
+      }
+      return c
+    }, 0);
+    if(us.length === 0) {
+      this.t.is(this.rsi, 0.5)
+      return
+    }
+    // us = (us.length > 14)? us.slice(us.length - 14, us.length) : us;
+    // ds = (ds.length > 14)? ds.slice(ds.length - 14, ds.length) : ds;
+    let au: number = null
+    for(const u of us) {
+      if(au === null) {
+        au = u
+        continue
+      }
+      au = ((1 - (1 / 14)) * au) + ((1 / 14) * u)
+    }
+    let ad: number = null
+    for(const d of ds) {
+      if(ad === null) {
+        ad = d
+        continue
+      }
+      ad = ((1 - (1 / 14)) * ad) + ((1 / 14) * d)
+    }
+    if(au === 0 && ad === 0) {
+      this.testRsi = 0.5
+    } else {
+      this.testRsi = au / (au + ad)
+    }
+    console.log(`rsi: ${this.rsi}, testRsi: ${this.testRsi}`)
+    // this.t.is(this.rsi, this.testRsi)
+  }
+
+  onOrderbook = null
+  onTicker = null
+  onTrade = null
+  finish = null
+}
+
+
 test.serial('SMA', async t => {
   const bot = new TestSMA('KRW-BTC', t)
   const socket = new UPbitTradeMock(join(__dirname, 'test_mock.db'), 'indexes_ma', {
@@ -114,7 +177,7 @@ test.serial('EWMA', async t => {
   t.is(bot.ma, bot.ewma)
 })
 
-test.serial.only('EWMA: candle', async t => {
+test.serial('EWMA: candle', async t => {
   const bot = new TestEWMABot('KRW-BTC', t)
   const socket = new UPbitCandleMock(join(__dirname, 'test_mock.db'), 'indexes_ma_candle', {
     from: isoDateTime(agoMinutes(20))
@@ -123,4 +186,27 @@ test.serial.only('EWMA: candle', async t => {
   await socket.open()
   console.log(`ma: ${bot.ma}, ewma: ${bot.ewma}`)
   t.is(bot.ma, bot.ewma)
+})
+
+test.serial('RSI', async t => {
+  const bot = new TestRSI('KRW-BTC', t)
+  const socket = new UPbitTradeMock(join(__dirname, 'test_mock.db'), 'indexes_rsi', {
+    daysAgo: 0,
+    to: '00:20:00',
+  })
+  socket.addBot(bot)
+  await socket.open()
+  console.log(`rsi: ${bot.rsi}, testRsi: ${bot.testRsi}`)
+  t.is(bot.rsi, bot.testRsi)
+})
+
+test.serial.only('RSI: candle', async t => {
+  const bot = new TestRSI('KRW-BTC', t)
+  const socket = new UPbitCandleMock(join(__dirname, 'test_mock.db'), 'indexes_rsi_candle', {
+    from: isoDateTime(agoMinutes(20))
+  })
+  socket.addBot(bot)
+  await socket.open()
+  console.log(`rsi: ${bot.rsi}, testRsi: ${bot.testRsi}`)
+  t.is(bot.rsi, bot.testRsi)
 })

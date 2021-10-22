@@ -9,7 +9,7 @@ export * from './utils'
 export * from './database'
 export * from './upbit.sequence'
 export * from './mock'
-export * from './indexes'
+export * from './indicators'
 export {
   upbit_types,
   UPbit,
