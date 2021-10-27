@@ -43,8 +43,8 @@ export function SMA(periods: number): (value?: number, modify?: boolean) => numb
     values.reduce((pre, val) => pre + val, 0) / periods
     : null
   }
+  let returned = null
   return (value: number = null, modify = false): number => {
-    let returned = null
     if(value === null) {
       return returned
     }
@@ -67,28 +67,27 @@ export function EMA(periods: number, multiplier: number = 2 / (periods + 1)): (v
   // const multiplier = 2 / (periods + 1)
   const smaf = SMA(periods)
   let pre: number = null
-  let first = false
+  let ema: number = null
   const indicator = (value: number = null, modify = false): number => {
+    if(ema === null) {
+      ema = smaf(value, modify)
+      return ema
+    }
     if(pre === null) {
-      pre = smaf(value, modify)
-      return pre
-    }
-    if(first === false) {
       if(modify === true) {
-        pre = smaf(value, modify)
-        return pre
+        ema = smaf(value, modify)
+        return ema
       }
-      first = true
     }
-    const ema = (value - pre) * multiplier + pre
-    // const ema = ((1 - multiplier) * pre) + multiplier * value
     if(modify === false) {
       pre = ema
     }
+    ema = (value - pre) * multiplier + pre
+    // ema = ((1 - multiplier) * pre) + multiplier * value
     return ema
   }
+  let returned = null
   return (value: number = null, modify = false): number => {
-    let returned = null
     if(value === null) {
       return returned
     }
@@ -142,18 +141,21 @@ export function RSI(periods: number, MA?: ValueIndicatorType, ...maArgs: unknown
     const loss = (value < preTimeVal)? preTimeVal - value : 0
     const avgGain = avgGainF(gain, modify)
     const avgLoss = avgLossF(loss, modify)
+    // console.log(`avgGain: ${avgGain}`)
+    // console.log(`argLoss: ${avgLoss}`)
     if(avgGain === null) {
       return null
     }
     const rs = avgGain / avgLoss
+    // console.log(`rs: ${rs}`)
     if(rs === NaN) {
       return 50
     }
     const rsi = 100 - (100 / (1 + rs))
     return rsi
   }
+  let returned = null
   return (value: number = null, modify = false): number => {
-    let returned = null
     if(value === null) {
       return returned
     }
