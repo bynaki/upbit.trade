@@ -11,16 +11,11 @@ import {
   BaseBot,
   addCandleListener,
   types as I,
-  BaseUPbitSocket,
-  UPbitCandleMock,
   UPbitTradeMock,
-  agoMinutes,
-  isoDateTime,
 } from '../src'
 import {
   join,
 } from 'path'
-import { times } from 'lodash'
 
 
 test('SMA', t => {

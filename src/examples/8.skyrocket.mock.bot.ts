@@ -35,12 +35,19 @@ class SkyrocketBot extends BaseBot {
 
   @addCandleListener(60, 72)
   aHour(ohlcs: I.OHLCType[]) {
+    if(this.code === 'KRW-AAVE' || this.code === 'KRW-1INCH') {
+      console.log(ohlcs[0])
+      console.log(ohlcs.length)
+    }
     if(ohlcs.length === 72) {
       this.last = ohlcs
     }
   }
 
   async finish() {
+    if(!this.last) {
+      return
+    }
     const low = this.last.reduce((pre, ohlc) => {
       if(pre === null) {
         return ohlc
