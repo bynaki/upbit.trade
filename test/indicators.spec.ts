@@ -5,9 +5,9 @@ import {
   SMA,
   EMA,
   RSI,
-  SMA_,
-  EMA_,
-  RSI_,
+  SMA_OHLC,
+  EMA_OHLC,
+  RSI_OHLC,
   BaseBot,
   addCandleListener,
   types as I,
@@ -137,7 +137,7 @@ class TestSMA extends BaseBot {
   }
 
   async start(socket) {
-    this.smaIndi = SMA_(10)
+    this.smaIndi = SMA_OHLC(10)
   }
 
   @addCandleListener(1, 10)
@@ -151,7 +151,7 @@ class TestSMA extends BaseBot {
     }
     this.t.is(sma_, sma)
     if(this.preTime !== recent.timestamp) {
-      console.log(`sma_: ${sma_}, sma: ${sma}`)
+      console.log(`sma_ohlc: ${sma_}, sma: ${sma}`)
       this.preTime = recent.timestamp
     }
   }
@@ -164,7 +164,7 @@ class TestSMA extends BaseBot {
 
 test('SMA: ohlc', async t => {
   const smaBot = new TestSMA('KRW-BTC', t)
-  const socket = new UPbitTradeMock(join(__dirname, 'test-indicators'), 'Indicators', {
+  const socket = new UPbitTradeMock(join(__dirname, 'test-indicator.db'), 'Indicators', {
     daysAgo: 0,
     to: '00:20:00',
   })
@@ -182,7 +182,7 @@ class TestEMA extends BaseBot {
   }
 
   async start(socket) {
-    this.emaIndi = EMA_(10)
+    this.emaIndi = EMA_OHLC(10)
   }
 
   @addCandleListener(1, 20)
@@ -196,7 +196,7 @@ class TestEMA extends BaseBot {
     }
     this.t.is(ema_, ema)
     if(this.preTime !== recent.timestamp) {
-      console.log(`ema_: ${ema_}, ema: ${ema}`)
+      console.log(`ema_ohlc: ${ema_}, ema: ${ema}`)
       this.preTime = recent.timestamp
     }
   }
@@ -209,7 +209,7 @@ class TestEMA extends BaseBot {
 
 test('EMA: ohlc', async t => {
   const emaBot = new TestEMA('KRW-BTC', t)
-  const socket = new UPbitTradeMock(join(__dirname, 'test-indicators'), 'Indicators', {
+  const socket = new UPbitTradeMock(join(__dirname, 'test-indicator.db'), 'Indicators', {
     daysAgo: 0,
     to: '00:20:00',
   })
@@ -227,7 +227,7 @@ class TestRSI extends BaseBot {
   }
 
   async start(socket) {
-    this.rsiIndi = RSI_(10)
+    this.rsiIndi = RSI_OHLC(10)
   }
 
   @addCandleListener(1, 20)
@@ -241,7 +241,7 @@ class TestRSI extends BaseBot {
     }
     this.t.is(rsi_, rsi)
     if(this.preTime !== recent.timestamp) {
-      console.log(`rsi_: ${rsi_}, rsi: ${rsi}`)
+      console.log(`rsi_ohlc: ${rsi_}, rsi: ${rsi}`)
       this.preTime = recent.timestamp
     }
   }
@@ -252,9 +252,9 @@ class TestRSI extends BaseBot {
   finish = null
 }
 
-test.only('RSI: ohlc', async t => {
+test('RSI: ohlc', async t => {
   const rsiBot = new TestRSI('KRW-BTC', t)
-  const socket = new UPbitTradeMock(join(__dirname, 'test-indicators'), 'Indicators', {
+  const socket = new UPbitTradeMock(join(__dirname, 'test-indicator.db'), 'Indicators', {
     daysAgo: 0,
     to: '00:20:00',
   })

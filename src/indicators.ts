@@ -23,10 +23,11 @@ function ValueIndicator(indicator: (value?: number, modify?: boolean) => number)
 }
 
 
+
 /**
  * 단순이동평균(Simple Moving Average, SMA)
  * @param periods 기간
- * @returns (value: number, modify: boolean = false) => number
+ * @returns SMA Indicator 함수 (value: number = null, modify: boolean = false) => number
  */
 export function SMA(periods: number): (value?: number, modify?: boolean) => number {
   const values: number[] = []
@@ -44,6 +45,8 @@ export function SMA(periods: number): (value?: number, modify?: boolean) => numb
     : null
   }
   let returned = null
+  // value가 null이면 방금전 이동평균을 반환한다.
+  // modify === false 이면 다음 시간에 계산, true이면 지금 시간 값으로 수정
   return (value: number = null, modify = false): number => {
     if(value === null) {
       return returned
@@ -53,18 +56,24 @@ export function SMA(periods: number): (value?: number, modify?: boolean) => numb
   }
 }
 
-export function SMA_(periods: number): (ohlc: I.OHLCType) => number {
+/**
+ * 단순이동평균 ohlc (Simple Moving Average, SMA)
+ * @param periods 기간
+ * @returns SMA Indicator 함수 (value: number = null, modify: boolean = false) => number
+ */
+export function SMA_OHLC(periods: number): (ohlc: I.OHLCType) => number {
   return ValueIndicator(SMA(periods))
 }
 
 
+
 /**
  * 지수이동평균 (Exponential Moving Average, EMA)
- * @param periods 기간. multiplier 승수(가중치)
- * @returns (value: number, modify: boolean = false) => number
+ * @param periods 기간
+ * @param multiplier 승수(가중치)
+ * @returns EMA Indicator 함수 (value: number = null, modify: boolean = false) => number
  */
 export function EMA(periods: number, multiplier: number = 2 / (periods + 1)): (value?: number, modify?: boolean) => number {
-  // const multiplier = 2 / (periods + 1)
   const smaf = SMA(periods)
   let pre: number = null
   let ema: number = null
@@ -87,6 +96,8 @@ export function EMA(periods: number, multiplier: number = 2 / (periods + 1)): (v
     return ema
   }
   let returned = null
+  // value가 null이면 방금전 이동평균을 반환한다.
+  // modify === false 이면 다음 시간에 계산, true이면 지금 시간 값으로 수정
   return (value: number = null, modify = false): number => {
     if(value === null) {
       return returned
@@ -96,7 +107,13 @@ export function EMA(periods: number, multiplier: number = 2 / (periods + 1)): (v
   }
 }
 
-export function EMA_(periods: number): (ohlc?: I.OHLCType) => number {
+/**
+ * 지수이동평균 ohlc (Exponential Moving Average, EMA)
+ * @param periods 기간
+ * @param multiplier 승수(가중치)
+ * @returns EMA Indicator 함수 (ohlc?: I.OHLCType) => number
+ */
+export function EMA_OHLC(periods: number): (ohlc?: I.OHLCType) => number {
   return ValueIndicator(EMA(periods))
 }
 
@@ -104,16 +121,16 @@ export function EMA_(periods: number): (ohlc?: I.OHLCType) => number {
 /**
  * RSI (Relative Strength Index)
  * @param periods 기간
- * @returns RSI Indicator 함수
+ * @returns RSI Indicator 함수 (value: number = null, modify = false): number
  */
 export function RSI(periods: number)
 : (value?: number, modify?: boolean) => number
 /**
  * RSI (Relative Strength Index)
  * @param periods 기간
- * @param MA 이동평균 Indicator (SMA, EMA, ..)
- * @param maArgs 이동평균 Indicator 인수
- * @returns RSI Indicator 함수
+ * @param MA 이동평균 Indicator 생성자 (SMA, EMA, ..)
+ * @param maArgs 이동평균 Indicator 생성자 인수
+ * @returns RSI Indicator 함수 (value: number = null, modify = false): number
  */
 export function RSI(periods: number, MA: ValueIndicatorType, ...maArgs: unknown[])
 : (value?: number, modify?: boolean) => number
@@ -125,7 +142,7 @@ export function RSI(periods: number, MA?: ValueIndicatorType, ...maArgs: unknown
     = (MA)? MA(periods, ...maArgs) : EMA(periods, 1 / periods)
   let preTimeVal = null
   let val = null
-  const indicator = (value: number, modify = false): number => {
+  const indicator = (value: number = null, modify = false): number => {
     if(val === null) {
       val = value
       return null
@@ -141,13 +158,10 @@ export function RSI(periods: number, MA?: ValueIndicatorType, ...maArgs: unknown
     const loss = (value < preTimeVal)? preTimeVal - value : 0
     const avgGain = avgGainF(gain, modify)
     const avgLoss = avgLossF(loss, modify)
-    // console.log(`avgGain: ${avgGain}`)
-    // console.log(`argLoss: ${avgLoss}`)
     if(avgGain === null) {
       return null
     }
     const rs = avgGain / avgLoss
-    // console.log(`rs: ${rs}`)
     if(rs === NaN) {
       return 50
     }
@@ -155,6 +169,8 @@ export function RSI(periods: number, MA?: ValueIndicatorType, ...maArgs: unknown
     return rsi
   }
   let returned = null
+  // value가 null이면 방금전 이동평균을 반환한다.
+  // modify === false 이면 다음 시간에 계산, true이면 지금 시간 값으로 수정
   return (value: number = null, modify = false): number => {
     if(value === null) {
       return returned
@@ -165,22 +181,22 @@ export function RSI(periods: number, MA?: ValueIndicatorType, ...maArgs: unknown
 }
 
 /**
- * RSI (Relative Strength Index)
+ * RSI ohlc (Relative Strength Index)
  * @param periods 기간
- * @returns RSI Indicator 함수
+ * @returns RSI Indicator 함수 (ohlc: I.OHLCType = null): number
  */
-export function RSI_(periods: number)
+export function RSI_OHLC(periods: number)
 : (ohlc?: I.OHLCType) => number
 /**
- * RSI (Relative Strength Index)
+ * RSI ohlc (Relative Strength Index)
  * @param periods 기간
- * @param MA 이동평균 Indicator (SMA, EMA, ..)
- * @param maArgs 이동평균 Indicator 인수
- * @returns RSI Indicator 함수
+ * @param MA 이동평균 Indicator 생성자 (SMA, EMA, ..)
+ * @param maArgs 이동평균 Indicator 생성자 인수
+ * @returns RSI Indicator 함수 (ohlc: I.OHLCType = null): number
  */
-export function RSI_(periods: number, MA: ValueIndicatorType, ...maArgs: unknown[])
+export function RSI_OHLC(periods: number, MA: ValueIndicatorType, ...maArgs: unknown[])
 : (ohlc?: I.OHLCType) => number
-export function RSI_(periods: number, MA?: ValueIndicatorType, ...maArgs: unknown[])
+export function RSI_OHLC(periods: number, MA?: ValueIndicatorType, ...maArgs: unknown[])
 : (ohlc?: I.OHLCType) => number {
   return ValueIndicator(RSI(periods, MA, ...maArgs))
 }
