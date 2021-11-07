@@ -1,15 +1,10 @@
 import {
-  // verbose,
-  Database as sqlite3,
-} from 'sqlite3'
-import {
-  Database as DB,
-  open,
-  ISqlite,
-} from 'sqlite'
-import {
   upbit_types as Iu,
 } from 'cryptocurrency.api'
+import {
+  open,
+  Database as DB,
+} from 'promised.sqlite'
 import {
   UPbitSequence,
   getConfig,
@@ -281,10 +276,7 @@ class Database {
 
   async ready<T, TT extends TableType>(tableName: string): Promise<DbTable<T, TT>> {
     if(!this.db) {
-      this.db = await open({
-        filename: this.filename,
-        driver: sqlite3,
-      })
+      this.db = await open(this.filename)
     }
     if(!await this.sqlMaster('tables')) {
       await this.run(`create table tables (
@@ -344,15 +336,15 @@ class Database {
     return this.db.run(`INSERT INTO ${tableName} VALUES ` + dbVals)
   }
 
-  all(sql: ISqlite.SqlType, ...params: any[]): Promise<any[]> {
-    return this.db.all(sql, ...params)
+  all(sql: string, params?: any): Promise<any[]> {
+    return this.db.all(sql, params)
   }
 
-  get(sql: ISqlite.SqlType, ...params: any[]): Promise<any> {
-    return this.db.get(sql, ...params)
+  get(sql: string, params?: any): Promise<any> {
+    return this.db.get(sql, params)
   }
 
-  run(sql: ISqlite.SqlType, ...params: any[]): Promise<any> {
-    return this.db.run(sql, ...params)
+  run(sql: string, params?: any): Promise<any> {
+    return this.db.run(sql, params)
   }
 }
