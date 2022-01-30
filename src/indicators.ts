@@ -200,3 +200,71 @@ export function RSI_OHLC(periods: number, MA?: ValueIndicatorType, ...maArgs: un
 : (ohlc?: I.OHLCType) => number {
   return ValueIndicator(RSI(periods, MA, ...maArgs))
 }
+
+
+/**
+ * RATIO 변동률
+ * @param periods 기간
+ * @returns RATIO Indicator 함수 (value: number = null, modify = false): number
+ */
+export function RATIO(periods: number)
+: (value?: number, modify?: boolean) => number
+/**
+ * RATIO 변동률
+ * @param periods 기간
+ * @param MA 이동평균 Indicator 생성자 (SMA, EMA, ..)
+ * @param maArgs 이동평균 Indicator 생성자 인수
+ * @returns RATIO Indicator 함수 (value: number = null, modify = false): number
+ */
+export function RATIO(periods: number, MA: ValueIndicatorType, ...maArgs: unknown[])
+: (value?: number, modify?: boolean) => number
+export function RATIO(periods: number, MA?: ValueIndicatorType, ...maArgs: unknown[])
+: (value?: number, modify?: boolean) => number {
+  const maIndi = (MA)? MA(periods, ...maArgs) : EMA(periods, 1 / periods)
+  let pre = null
+  let val = null
+  const indicator = (value: number, modify: boolean): number => {
+    if(val === null) {
+      val = value
+      return null
+    }
+    if(modify === false) {
+      pre = val
+    }
+    val = value
+    if(pre === null) {
+      return null
+    }
+    const ratio = Math.abs(((val - pre) / pre) * 100)
+    return maIndi(ratio, modify)
+  }
+  let returned = null
+  return (value: number = null, modify = false): number => {
+    if(value === null) {
+      return returned
+    }
+    returned = indicator(value, modify)
+    return returned
+  }
+}
+
+/**
+ * RATIO ohlc 변동률
+ * @param periods 기간
+ * @returns RATIO Indicator 함수 (ohlc: I.OHLCType = null): number
+ */
+export function RATIO_OHLC(periods: number)
+: (ohlc?: I.OHLCType) => number
+/**
+ * RATIO ohlc 변동률
+ * @param periods 기간
+ * @param MA 이동평균 Indicator 생성자 (SMA, EMA, ..)
+ * @param maArgs 이동평균 Indicator 생성자 인수
+ * @returns RATIO Indicator 함수 (ohlc: I.OHLCType = null): number
+ */
+export function RATIO_OHLC(periods: number, MA: ValueIndicatorType, ...maArgs: unknown[])
+: (ohlc?: I.OHLCType) => number
+export function RATIO_OHLC(periods: number, MA?: ValueIndicatorType, ...maArgs: unknown[])
+: (ohlc?: I.OHLCType) => number {
+  return ValueIndicator(RATIO(periods, MA, ...maArgs))
+}

@@ -5,9 +5,11 @@ import {
   SMA,
   EMA,
   RSI,
+  RATIO,
   SMA_OHLC,
   EMA_OHLC,
   RSI_OHLC,
+  RATIO_OHLC,
   BaseBot,
   addCandleListener,
   types as I,
@@ -120,6 +122,50 @@ test('RSI', t => {
     t.is(rsiIndi(values[i]), returneds[i - 14])
   }
   t.is(rsiIndi(), returneds[returneds.length - 1])
+})
+
+test.only('RATIO', t => {
+  const ratioIndi = RATIO(14, SMA, 14)
+  const values = [
+    38, 45, 69, 47, 10, 89, 78, 26, 26, 90,
+    74, 53, 42, 30, 21, 15, 56, 47, 73, 12,
+  ]
+  const rr = [
+    (38 - 45) / 38 * 100,
+    (45 - 69) / 45 * 100,
+    (69 - 47) / 69 * 100,
+    (47 - 10) / 47 * 100,
+    (10 - 89) / 10 * 100,
+    (89 - 78) / 89 * 100,
+    (78 - 26) / 78 * 100,
+    (26 - 26) / 26 * 100,
+    (26 - 90) / 26 * 100,
+    (90 - 74) / 90 * 100,
+    (74 - 53) / 74 * 100,
+    (53 - 42) / 53 * 100,
+    (42 - 30) / 42 * 100,
+    (30 - 21) / 30 * 100,
+    (21 - 15) / 21 * 100,
+    (15 - 56) / 15 * 100,
+    (56 - 47) / 56 * 100,
+    (47 - 73) / 47 * 100,
+    (73 - 12) / 73 * 100,
+  ]
+  let ratio = 0
+  for(let i = 0; i < values.length; i++) {
+    if(i < 14) {
+      t.is(ratioIndi(values[i]), null)
+      continue
+    }
+    let sum = 0
+    for(let j = 1; j <= 14; j++) {
+      sum += Math.abs(rr[i - j])
+    }
+    const mean = sum / 14
+    ratio = ratioIndi(values[i])
+    t.is(ratio, mean)
+  }
+  t.is(ratioIndi(), ratio)
 })
 
 
@@ -254,5 +300,50 @@ test('RSI: ohlc', async t => {
     to: '00:20:00',
   })
   socket.addBot(rsiBot)
+  await socket.open()
+})
+
+
+class TestRATIO extends BaseBot {
+  ratioIndi: (ohlc: I.OHLCType) => number
+  preTime: number = null
+
+  constructor(code: string, private readonly t: ExecutionContext) {
+    super(code)
+  }
+
+  async start(socket) {
+    this.ratioIndi = RATIO_OHLC(10)
+  }
+
+  @addCandleListener(1, 20)
+  on1m(ohlcs: I.OHLCType[]) {
+    const recent = ohlcs[0]
+    const ratio_ = this.ratioIndi(recent)
+    const ratiof = RATIO(10)
+    let ratio = null
+    for(const val of ohlcs.reverse().map(o => o.close)) {
+      ratio = ratiof(val)
+    }
+    this.t.is(ratio_, ratio)
+    if(this.preTime !== recent.timestamp) {
+      console.log(`ratio_ohlc: ${ratio_}, ratio: ${ratio}`)
+      this.preTime = recent.timestamp
+    }
+  }
+
+  onOrderbook = null
+  onTicker = null
+  onTrade = null
+  finish = null
+}
+
+test.only('RATIO: ohlc', async t => {
+  const ratioBot = new TestRATIO('KRW-BTC', t)
+  const socket = new UPbitTradeMock(join(__dirname, 'test-indicator.db'), 'Indicators', {
+    daysAgo: 0,
+    to: '00:20:00',
+  })
+  socket.addBot(ratioBot)
   await socket.open()
 })
