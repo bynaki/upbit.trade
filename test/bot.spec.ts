@@ -1,7 +1,6 @@
 import test, {
-  CbExecutionContext,
+  ExecutionContext,
 } from 'ava'
-import WebSocket from 'ws'
 import {
   UPbitSocket,
   BaseBot,
@@ -19,6 +18,8 @@ import {
 import {
   remove, removeSync,
 } from 'fs-extra'
+import Observable from 'zen-observable'
+
 
 
 
@@ -185,46 +186,60 @@ test('UPbitSocket#requests()', t => {
   ])
 })
 
-test.serial.cb('TestTradeBot', t => {
+test.serial('TestTradeBot', t => {
   const us = new UPbitSocket()
-  us.addBot(new TestTradeBot('KRW-BTC', t))
-  us.open()
+  return new Observable(obs => {
+    us.addBot(new TestTradeBot('KRW-BTC', t, obs))
+    us.open()
+  })
 })
 
-test.serial.cb('TestOrderbookBot', t => {
+test.serial('TestOrderbookBot', t => {
   const us = new UPbitSocket()
-  us.addBot(new TestOrderbookBot('KRW-BTC', t))
-  us.open()
+  return new Observable(obs => {
+    us.addBot(new TestOrderbookBot('KRW-BTC', t, obs))
+    us.open()
+  })
 })
 
-test.serial.cb('TestTickerBot', t => {
+test.serial('TestTickerBot', t => {
   const us = new UPbitSocket()
-  us.addBot(new TestTickerBot('KRW-BTC', t))
-  us.open()
+  return new Observable(obs => {
+    us.addBot(new TestTickerBot('KRW-BTC', t, obs))
+    us.open()
+  })
 })
 
-test.serial.cb('TestLogBot', t => {
+test.serial('TestLogBot', t => {
   const us = new UPbitSocket()
-  us.addBot(new TestLogBot('KRW-BTC', t))
-  us.open()
+  return new Observable(obs => {
+    us.addBot(new TestLogBot('KRW-BTC', t, obs))
+    us.open()
+  })
 })
 
-test.serial.cb('TestQueueBot', t => {
+test.serial('TestQueueBot', t => {
   const us = new UPbitSocket()
-  us.addBot(new TestQueueBot('KRW-BTC', t))
-  us.open()
+  return new Observable(obs => {
+    us.addBot(new TestQueueBot('KRW-BTC', t, obs))
+    us.open()
+  })
 })
 
-test.serial.cb('TestCandleQueueBot', t => {
+test.serial('TestCandleQueueBot', t => {
   const us = new UPbitSocket()
-  us.addBot(new TestCandleQueueBot('KRW-BTC', t))
-  us.open()
+  return new Observable(obs => {
+    us.addBot(new TestCandleQueueBot('KRW-BTC', t, obs))
+    us.open()
+  })
 })
 
-test.serial.cb('TestLatestBot', t => {
+test.serial('TestLatestBot', t => {
   const us = new UPbitSocket()
-  us.addBot(new TestLatestBot('KRW-BTC', t))
-  us.open()
+  return new Observable(obs => {
+    us.addBot(new TestLatestBot('KRW-BTC', t, obs))
+    us.open()
+  })
 })
 
 
@@ -243,10 +258,10 @@ class TestBot extends BaseBot {
   async onTrade(data: I.TradeType) {
   }
 
-  start = null
-  finish = null
-  onOrderbook = null
-  onTicker = null
+  start = null!
+  finish = null!
+  onOrderbook = null!
+  onTicker = null!
 }
 
 
@@ -262,9 +277,9 @@ class TestBot2 extends BaseBot {
   async onOrderbook(data: I.OrderbookType) {
   }
 
-  start = null
-  finish = null
-  onTicker = null
+  start = null!
+  finish = null!
+  onTicker = null!
 }
 
 class TestBot3 extends BaseBot {
@@ -278,32 +293,31 @@ class TestBot3 extends BaseBot {
   async onOrderbook(data: I.OrderbookType) {
   }
 
-  start = null
-  finish = null
-  onClose = null
-  onTicker = null
+  start = null!
+  finish = null!
+  onClose = null!
+  onTicker = null!
 }
 
 
 
 class TestTradeBot extends BaseBot {
-  private _t: CbExecutionContext
   private _tr: I.TradeType[] = []
 
-  constructor(code: string, t: CbExecutionContext) {
+  constructor(code: string, private readonly t: ExecutionContext
+    , private readonly obs: ZenObservable.SubscriptionObserver<void>) {
     super(code)
-    this._t = t
-    this._t.plan(50)
+    this.t.plan(50)
   }
 
   async start() {
-    this._t.pass()
+    this.t.pass()
   }
 
   async onTrade(data: I.TradeType) {
     if(this._tr.length < 10) {
       this._tr.push(data)
-      this._t.deepEqual(Object.keys(data), [
+      this.t.deepEqual(Object.keys(data), [
         'type',
         'code',
         'timestamp',
@@ -319,46 +333,45 @@ class TestTradeBot extends BaseBot {
         'sequential_id',
         'stream_type',
       ])
-      this._t.is(data.type, I.ReqType.Trade)
-      this._t.is(data.code, 'KRW-BTC')
+      this.t.is(data.type, I.ReqType.Trade)
+      this.t.is(data.code, 'KRW-BTC')
     } else {
-      this._t.is(this._tr.length, 10)
+      this.t.is(this._tr.length, 10)
       this._tr.reduce((p, c) => {
-        if(p !== null) {
-          this._t.true(p.trade_timestamp <= c.trade_timestamp)
-          this._t.true(p.sequential_id < c.sequential_id)
+        if(p) {
+          this.t.true(p.trade_timestamp <= c.trade_timestamp)
+          this.t.true(p.sequential_id < c.sequential_id)
         }
         return c
-      }, null)
-      this._t.end()
+      })
+      this.obs.complete()
     }
   }
 
-  finish = null
-  onOrderbook = null
-  onTicker = null
+  finish = null!
+  onOrderbook = null!
+  onTicker = null!
 }
 
 
 
 class TestOrderbookBot extends BaseBot {
-  private _t: CbExecutionContext
   private _td: I.OrderbookType[] = []
 
-  constructor(code: string, t: CbExecutionContext) {
+  constructor(code: string, private readonly t: ExecutionContext
+    , private readonly obs: ZenObservable.SubscriptionObserver<void>) {
     super(code)
-    this._t = t
-    this._t.plan(61)
+    this.t.plan(61)
   }
 
   async start() {
-    this._t.pass()
+    this.t.pass()
   }
 
   async onOrderbook(data: I.OrderbookType) {
     if(this._td.length < 10) {
       this._td.push(data)
-      this._t.deepEqual(Object.keys(data), [
+      this.t.deepEqual(Object.keys(data), [
         'type',
         'code',
         'timestamp',
@@ -367,52 +380,51 @@ class TestOrderbookBot extends BaseBot {
         'orderbook_units',
         'stream_type',
       ])
-      this._t.is(data.orderbook_units.length, 15)
-      this._t.deepEqual(Object.keys(data.orderbook_units[0]), [
+      this.t.is(data.orderbook_units.length, 15)
+      this.t.deepEqual(Object.keys(data.orderbook_units[0]), [
         'ask_price',
         'bid_price',
         'ask_size',
         'bid_size',
       ])
-      this._t.is(data.type, I.ReqType.Orderbook)
-      this._t.is(data.code, 'KRW-BTC')
+      this.t.is(data.type, I.ReqType.Orderbook)
+      this.t.is(data.code, 'KRW-BTC')
     } else {
-      this._t.is(this._td.length, 10)
+      this.t.is(this._td.length, 10)
       this._td.reduce((p, c) => {
-        if(p !== null) {
-          this._t.true(p.timestamp < c.timestamp)
+        if(p) {
+          this.t.true(p.timestamp < c.timestamp)
         }
         return c
-      }, null)
-      this._t.end()
+      })
+      this.obs.complete()
     }
   }
 
-  finish = null
-  onTrade = null
-  onTicker = null
+  finish = null!
+  onTrade = null!
+  onTicker = null!
 }
 
 
 
 class TestTickerBot extends BaseBot {
-  private _t: CbExecutionContext
   private _td: I.TickerType[] = []
 
-  constructor(code: string, t: CbExecutionContext) {
+  constructor(code: string, private readonly t: ExecutionContext
+    , private readonly obs: ZenObservable.SubscriptionObserver<void>) {
     super(code)
-    this._t = t
-    this._t.plan(41)
+    this.t.plan(41)
   }
 
   async start() {
-    this._t.pass()
+    this.t.pass()
   }
 
   async onTicker(data: I.TickerType) {
     if(this._td.length < 10) {
       this._td.push(data)
-      this._t.deepEqual(Object.keys(data), [
+      this.t.deepEqual(Object.keys(data).sort(), [
         'type',                 'code',
         'opening_price',        'high_price',
         'low_price',            'trade_price',
@@ -425,52 +437,51 @@ class TestTickerBot extends BaseBot {
         'trade_timestamp',      'acc_ask_volume',
         'acc_bid_volume',       'highest_52_week_price',
         'highest_52_week_date', 'lowest_52_week_price',
-        'lowest_52_week_date',  'trade_status',
-        'market_state',         'market_state_for_ios',
+        'lowest_52_week_date',  /*'trade_status',*/
+        'market_state',         /*'market_state_for_ios',*/
         'is_trading_suspended', 'delisting_date',
         'market_warning',       'timestamp',
         'acc_trade_price_24h',  'acc_trade_volume_24h',
         'stream_type',
-      ])
-      this._t.is(data.type, I.ReqType.Ticker)
-      this._t.is(data.code, 'KRW-BTC')
+      ].sort())
+      this.t.is(data.type, I.ReqType.Ticker)
+      this.t.is(data.code, 'KRW-BTC')
     } else {
-      this._t.is(this._td.length, 10)
+      this.t.is(this._td.length, 10)
       this._td.reduce((p, c) => {
-        if(p !== null) {
-          this._t.true(p.trade_timestamp <= c.trade_timestamp)
+        if(p) {
+          this.t.true(p.trade_timestamp <= c.trade_timestamp)
         }
         return c
-      }, null)
-      this._t.end()
+      })
+      this.obs.complete()
     }
   }
 
-  finish = null
-  onOrderbook = null
-  onTrade = null
+  finish = null!
+  onOrderbook = null!
+  onTrade = null!
 }
 
 
 
 class TestQueueBot extends BaseBot {
-  private _t: CbExecutionContext
   private _count = 3
   private _datas: I.TradeType[] = []
 
-  constructor(code: string, t: CbExecutionContext) {
+  constructor(code: string, private readonly t: ExecutionContext
+    , private readonly obs: ZenObservable.SubscriptionObserver<void>) {
     super(code)
-    this._t = t
     t.plan(7)
   }
 
   async start() {
-    this._t.pass()
+    this.t.pass()
   }
   
   async onTrade(data: I.TradeType) {
     if(this._count === -1) {
-      const t = this._t
+      const t = this.t
       //console.log(`data.length: ${this._datas.length}`)
       this._datas.reduce((p, d) => {
         //console.log(d)
@@ -479,8 +490,8 @@ class TestQueueBot extends BaseBot {
           t.true(p.sequential_id < d.sequential_id)
         }
         return d
-      }, null)
-      this._t.end()
+      })
+      this.obs.complete()
       return
     }
     const ms = this._count-- * 1000
@@ -489,9 +500,9 @@ class TestQueueBot extends BaseBot {
     this._datas.push(data)
   }
 
-  finish = null
-  onOrderbook = null
-  onTicker = null
+  finish = null!
+  onOrderbook = null!
+  onTicker = null!
 }
 
 
@@ -500,7 +511,8 @@ class TestCandleQueueBot extends BaseBot {
   private count = 3
   private tr: I.TradeType
 
-  constructor(code: string, private readonly t: CbExecutionContext) {
+  constructor(code: string, private readonly t: ExecutionContext
+    , private readonly obs: ZenObservable.SubscriptionObserver<void>) {
     super(code)
     t.plan(3)
   }
@@ -516,7 +528,7 @@ class TestCandleQueueBot extends BaseBot {
   @addCandleListener(1, 10)
   async m1(ohlc: I.OHLCType[]) {
     if(--this.count <= 0) {
-      this.t.end()
+      this.obs.complete()
       return
     }
     await $4.stop(1000)
@@ -525,62 +537,59 @@ class TestCandleQueueBot extends BaseBot {
     this.t.true(ohlc[0].close === this.tr.trade_price)
   }
 
-  finish = null
-  onOrderbook = null
-  onTicker = null
+  finish = null!
+  onOrderbook = null!
+  onTicker = null!
 }
 
 
 
 class TestLatestBot extends BaseBot {
-  private _t: CbExecutionContext
-
-  constructor(code: string, t: CbExecutionContext) {
+  constructor(code: string, private readonly t: ExecutionContext
+    , private readonly obs: ZenObservable.SubscriptionObserver<void>) {
     super(code)
-    this._t = t
     t.plan(4)
   }
 
   async start() {
-    this._t.pass()
+    this.t.pass()
   }
 
   async onTrade(res: I.TradeType) {
-    this._t.true(this.latest(I.ReqType.Trade) !== null)
-    this._t.true(this.latest(I.ReqType.Orderbook) !== null)
-    this._t.true(this.latest(I.ReqType.Ticker) === null)
-    this._t.end()
+    this.t.true(this.latest(I.ReqType.Trade) !== null)
+    this.t.true(this.latest(I.ReqType.Orderbook) !== null)
+    this.t.true(this.latest(I.ReqType.Ticker) === null)
+    this.obs.complete()
   }
 
   async onOrderbook(res: I.OrderbookType) {
-    this._t.true(this.latest(I.ReqType.Trade) !== null)
-    this._t.true(this.latest(I.ReqType.Orderbook) !== null)
-    this._t.true(this.latest(I.ReqType.Ticker) === null)
-    this._t.end()
+    this.t.true(this.latest(I.ReqType.Trade) !== null)
+    this.t.true(this.latest(I.ReqType.Orderbook) !== null)
+    this.t.true(this.latest(I.ReqType.Ticker) === null)
+    this.obs.complete()
   }
   
-  finish = null
-  onTicker = null
+  finish = null!
+  onTicker = null!
 }
 
 
 
 class TestLogBot extends BaseBot {
-  private _t: CbExecutionContext
   private _origin
   private socket: BaseUPbitSocket
 
-  constructor(code: string, t: CbExecutionContext) {
+  constructor(code: string, private readonly t: ExecutionContext
+    , private readonly obs: ZenObservable.SubscriptionObserver<void>) {
     super(code)
-    this._t = t
-    this._t.plan(2)
+    this.t.plan(2)
   }
   
   async start(socket: BaseUPbitSocket) {
     this.socket = socket
     this._origin = TestLogBot.writer
     TestLogBot.writer = new $4.FileWriter(join(__dirname, 'log', 'test.log'), '1d')
-    this._t.pass()
+    this.t.pass()
   }
 
   async onTrade(data: I.TradeType) {
@@ -588,15 +597,15 @@ class TestLogBot extends BaseBot {
     await $4.stop(500)
     const contents = await readFile(join(__dirname, 'log', 'test.log'))
     const reg = /log: \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} > TestLogBot:KRW-BTC - Hello World!!/
-    this._t.regex(contents.toString(), reg)
+    this.t.regex(contents.toString(), reg)
     TestLogBot.writer = this._origin
-    this._t.end()
+    this.obs.complete()
     await this.socket.close()
   }
 
-  onOrderbook = null
-  onTicker = null
-  finish = null
+  onOrderbook = null!
+  onTicker = null!
+  finish = null!
 }
 
 
@@ -610,14 +619,16 @@ class IdBot extends BaseBot {
     return super.name + ':' + this.id
   }
 
-  onTrade(tr: I.TradeType): Promise<void> {
+  async onTrade(tr: I.TradeType): Promise<void> {
+  }
+
+  onOrderbook = async (aa: I.OrderbookType): Promise<void> => {
     return
   }
 
-  onOrderbook = null
-  onTicker = null
-  start = null
-  finish = null
+  onTicker = null!
+  start = null!
+  finish = null!
 }
 
 

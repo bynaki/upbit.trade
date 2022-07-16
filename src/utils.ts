@@ -3,7 +3,8 @@ import {
 } from 'fs'
 import * as I from './types'
 import {
-  UPbit
+  UPbit,
+  upbit_types as Iu,
 } from 'cryptocurrency.api'
 import { isNumber, isString } from 'lodash'
 import { format } from 'fecha'
@@ -14,13 +15,13 @@ export function getConfig(fileName: string = './config.json'): I.Config {
   return JSON.parse((readFileSync(fileName)).toString())
 }
 
-export function floor(val: number, jari: number) {
-  return Math.floor(val * Math.pow(10, jari)) / Math.pow(10, jari)
-}
+// export function floor(val: number, jari: number) {
+//   return Math.floor(val * Math.pow(10, jari)) / Math.pow(10, jari)
+// }
 
-export function ceil(val: number, jari: number) {
-  return Math.ceil(val * Math.pow(10, jari)) / Math.pow(10, jari)
-}
+// export function ceil(val: number, jari: number) {
+//   return Math.ceil(val * Math.pow(10, jari)) / Math.pow(10, jari)
+// }
 
 export function floorOrderbook(price: number) {
   if(price >= 2000000) {
@@ -200,3 +201,14 @@ export class OHLCMaker {
 }
 
 export const api = new UPbit(getConfig('./config.json').upbit_keys)
+
+
+const f = (): boolean => {
+  return true
+}
+
+export const safeApi = {
+  getMarket: (isDetails?: boolean): Promise<Iu.Response<Iu.MarketType[]>> => {
+    return api.getMarket(isDetails)
+  }
+}

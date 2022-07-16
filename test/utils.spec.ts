@@ -2,6 +2,8 @@ import test from 'ava'
 import {
   allMarketCode,
   tickers,
+  safeApi,
+  api,
 } from '../src'
 
 
@@ -33,5 +35,19 @@ test('tickers(): sort acc_trade_price_24h (splice)', async t => {
   while(tks.length !== 0) {
     console.log(JSON.stringify(tks.splice(0, 10).map(tk => tk.market), null, 2))
   }
+  t.pass()
+})
+
+test.only('safeApi#getMarket()', async t => {
+  const ress = []
+  for(let i = 0; i < 200; i++) {
+    ress.push((async () => {
+      const m = await safeApi.getMarket(true)
+      console.log(m.remainingReq)
+      console.log(m.status)
+      console.log(m.data[0])
+    })())
+  }
+  const rr = await Promise.all(ress)
   t.pass()
 })

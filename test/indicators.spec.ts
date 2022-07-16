@@ -68,8 +68,8 @@ test('EMA', t => {
     23.40, 23.39, 23.26, 23.23, 23.08, 22.92,
   ]
   for(let i = 0; i < values.length; i++) {
-    const sma = Math.round(smaIndi(values[i]) * 100) / 100
-    const ema = Math.round(emaIndi(values[i]) * 100) / 100
+    const sma = Math.round(smaIndi(values[i])! * 100) / 100
+    const ema = Math.round(emaIndi(values[i])! * 100) / 100
     if(i < 9) {
       t.is(sma, 0)
       t.is(ema, 0)
@@ -78,8 +78,8 @@ test('EMA', t => {
     t.is(sma, day10Sma[i - 9])
     t.is(ema, day10Ema[i - 9])
   }
-  t.is(Math.round(smaIndi() * 100) / 100, 23.13)
-  t.is(Math.round(emaIndi() * 100) / 100, 22.92)
+  t.is(Math.round(smaIndi()! * 100) / 100, 23.13)
+  t.is(Math.round(emaIndi()! * 100) / 100, 22.92)
 })
 
 test('RSI', t => {
@@ -124,7 +124,7 @@ test('RSI', t => {
   t.is(rsiIndi(), returneds[returneds.length - 1])
 })
 
-test.only('RATIO', t => {
+test('RATIO', t => {
   const ratioIndi = RATIO(14, SMA, 14)
   const values = [
     38, 45, 69, 47, 10, 89, 78, 26, 26, 90,
@@ -162,16 +162,18 @@ test.only('RATIO', t => {
       sum += Math.abs(rr[i - j])
     }
     const mean = sum / 14
-    ratio = ratioIndi(values[i])
+    ratio = ratioIndi(values[i])!
     t.is(ratio, mean)
   }
   t.is(ratioIndi(), ratio)
 })
 
 
+
+
 class TestSMA extends BaseBot {
-  smaIndi: (ohlc: I.OHLCType) => number
-  preTime: number = null
+  smaIndi: (ohlc: I.OHLCType) => number | null
+  preTime: number = null! 
 
   constructor(code: string, private readonly t: ExecutionContext) {
     super(code)
@@ -186,7 +188,7 @@ class TestSMA extends BaseBot {
     const recent = ohlcs[0]
     const sma_ = this.smaIndi(recent)
     const smaF = SMA(10)
-    let sma = null
+    let sma: number | null = null
     for(const val of ohlcs.reverse().map(o => o.close)) {
       sma = smaF(val)
     }
@@ -197,10 +199,10 @@ class TestSMA extends BaseBot {
     }
   }
 
-  onOrderbook = null
-  onTicker = null
-  onTrade = null
-  finish = null
+  onOrderbook = null!
+  onTicker = null!
+  onTrade = null!
+  finish = null!
 }
 
 test('SMA: ohlc', async t => {
@@ -215,8 +217,8 @@ test('SMA: ohlc', async t => {
 
 
 class TestEMA extends BaseBot {
-  emaIndi: (ohlc: I.OHLCType) => number
-  preTime: number = null
+  emaIndi: (ohlc: I.OHLCType) => number | null
+  preTime: number
 
   constructor(code: string, private readonly t: ExecutionContext) {
     super(code)
@@ -231,21 +233,21 @@ class TestEMA extends BaseBot {
     const recent = ohlcs[0]
     const ema_ = this.emaIndi(recent)
     const emaF = EMA(10)
-    let ema = null
+    let ema: number | null
     for(const val of ohlcs.reverse().map(o => o.close)) {
       ema = emaF(val)
     }
-    this.t.is(ema_, ema)
+    this.t.is(ema_, ema!)
     if(this.preTime !== recent.timestamp) {
-      console.log(`ema_ohlc: ${ema_}, ema: ${ema}`)
+      console.log(`ema_ohlc: ${ema_}, ema: ${ema!}`)
       this.preTime = recent.timestamp
     }
   }
 
-  onOrderbook = null
-  onTicker = null
-  onTrade = null
-  finish = null
+  onOrderbook = null!
+  onTicker = null!
+  onTrade = null!
+  finish = null!
 }
 
 test('EMA: ohlc', async t => {
@@ -260,8 +262,8 @@ test('EMA: ohlc', async t => {
 
 
 class TestRSI extends BaseBot {
-  rsiIndi: (ohlc: I.OHLCType) => number
-  preTime: number = null
+  rsiIndi: (ohlc: I.OHLCType) => number | null
+  preTime: number
 
   constructor(code: string, private readonly t: ExecutionContext) {
     super(code)
@@ -276,21 +278,21 @@ class TestRSI extends BaseBot {
     const recent = ohlcs[0]
     const rsi_ = this.rsiIndi(recent)
     const rsif = RSI(10)
-    let rsi = null
+    let rsi: number | null
     for(const val of ohlcs.reverse().map(o => o.close)) {
       rsi = rsif(val)
     }
-    this.t.is(rsi_, rsi)
+    this.t.is(rsi_, rsi!)
     if(this.preTime !== recent.timestamp) {
-      console.log(`rsi_ohlc: ${rsi_}, rsi: ${rsi}`)
+      console.log(`rsi_ohlc: ${rsi_}, rsi: ${rsi!}`)
       this.preTime = recent.timestamp
     }
   }
 
-  onOrderbook = null
-  onTicker = null
-  onTrade = null
-  finish = null
+  onOrderbook = null!
+  onTicker = null!
+  onTrade = null!
+  finish = null!
 }
 
 test('RSI: ohlc', async t => {
@@ -305,8 +307,8 @@ test('RSI: ohlc', async t => {
 
 
 class TestRATIO extends BaseBot {
-  ratioIndi: (ohlc: I.OHLCType) => number
-  preTime: number = null
+  ratioIndi: (ohlc: I.OHLCType) => number | null
+  preTime: number
 
   constructor(code: string, private readonly t: ExecutionContext) {
     super(code)
@@ -321,24 +323,24 @@ class TestRATIO extends BaseBot {
     const recent = ohlcs[0]
     const ratio_ = this.ratioIndi(recent)
     const ratiof = RATIO(10)
-    let ratio = null
+    let ratio: number | null
     for(const val of ohlcs.reverse().map(o => o.close)) {
       ratio = ratiof(val)
     }
-    this.t.is(ratio_, ratio)
+    this.t.is(ratio_, ratio!)
     if(this.preTime !== recent.timestamp) {
-      console.log(`ratio_ohlc: ${ratio_}, ratio: ${ratio}`)
+      console.log(`ratio_ohlc: ${ratio_}, ratio: ${ratio!}`)
       this.preTime = recent.timestamp
     }
   }
 
-  onOrderbook = null
-  onTicker = null
-  onTrade = null
-  finish = null
+  onOrderbook = null!
+  onTicker = null!
+  onTrade = null!
+  finish = null!
 }
 
-test.only('RATIO: ohlc', async t => {
+test('RATIO: ohlc', async t => {
   const ratioBot = new TestRATIO('KRW-BTC', t)
   const socket = new UPbitTradeMock(join(__dirname, 'test-indicator.db'), 'Indicators', {
     daysAgo: 0,

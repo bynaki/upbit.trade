@@ -190,13 +190,13 @@ function addEventListener<B extends BaseBot, E extends I.EventType>(
 }
 
 
-type DecoCandleListenerType = {
+type DecoCandleListenerType<B extends BaseBot> = {
   (minutes: 1|3|5|10|15|30|60|240, limit: number)
-  : (target: BaseBot, property: string, descriptor: PropertyDescriptor) => PropertyDescriptor
+  : (target: B, property: string, descriptor: PropertyDescriptor) => PropertyDescriptor
 }
 
-export const addCandleListener: DecoCandleListenerType = (minutes: 1|3|5|10|15|30|60|240, limit: number) => {
-  return (target: BaseBot, property: string, descriptor: PropertyDescriptor) => {
+export function addCandleListener<B extends BaseBot>(minutes: 1|3|5|10|15|30|60|240, limit: number) {
+  return (target: B, property: string, descriptor: PropertyDescriptor) => {
     addEventListener(target, I.EventType.Candle, property, {
       minutes,
       limit,

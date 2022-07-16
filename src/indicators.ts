@@ -5,12 +5,12 @@ import {
 
 
 
-type ValueIndicatorType = (periods: number, ...args: unknown[]) => (value?: number, modify?: boolean) => number
+type ValueIndicatorType = (periods: number, ...args: unknown[]) => (value?: number, modify?: boolean) => number | null
 
 
-function ValueIndicator(indicator: (value?: number, modify?: boolean) => number): (ohlc?: I.OHLCType) => number {
+function ValueIndicator(indicator: (value?: number, modify?: boolean) => number | null): (ohlc?: I.OHLCType) => number | null {
   let pre: I.OHLCType = null
-  return (ohlc: I.OHLCType = null): number => {
+  return (ohlc: I.OHLCType = null): number | null => {
     if(ohlc === null) {
       return indicator()
     }
@@ -29,7 +29,7 @@ function ValueIndicator(indicator: (value?: number, modify?: boolean) => number)
  * @param periods 기간
  * @returns SMA Indicator 함수 (value: number = null, modify: boolean = false) => number
  */
-export function SMA(periods: number): (value?: number, modify?: boolean) => number {
+export function SMA(periods: number): (value?: number, modify?: boolean) => number | null {
   const values: number[] = []
   const indicator = (value: number = null, modify = false): number => {
     if(values.length === 0 || modify === false) {
@@ -61,7 +61,7 @@ export function SMA(periods: number): (value?: number, modify?: boolean) => numb
  * @param periods 기간
  * @returns SMA Indicator 함수 (value: number = null, modify: boolean = false) => number
  */
-export function SMA_OHLC(periods: number): (ohlc: I.OHLCType) => number {
+export function SMA_OHLC(periods: number): (ohlc: I.OHLCType) => number | null {
   return ValueIndicator(SMA(periods))
 }
 
@@ -73,7 +73,7 @@ export function SMA_OHLC(periods: number): (ohlc: I.OHLCType) => number {
  * @param multiplier 승수(가중치)
  * @returns EMA Indicator 함수 (value: number = null, modify: boolean = false) => number
  */
-export function EMA(periods: number, multiplier: number = 2 / (periods + 1)): (value?: number, modify?: boolean) => number {
+export function EMA(periods: number, multiplier: number = 2 / (periods + 1)): (value?: number, modify?: boolean) => number | null {
   const smaf = SMA(periods)
   let pre: number = null
   let ema: number = null
@@ -113,7 +113,7 @@ export function EMA(periods: number, multiplier: number = 2 / (periods + 1)): (v
  * @param multiplier 승수(가중치)
  * @returns EMA Indicator 함수 (ohlc?: I.OHLCType) => number
  */
-export function EMA_OHLC(periods: number): (ohlc?: I.OHLCType) => number {
+export function EMA_OHLC(periods: number): (ohlc?: I.OHLCType) => number | null {
   return ValueIndicator(EMA(periods))
 }
 
@@ -124,7 +124,7 @@ export function EMA_OHLC(periods: number): (ohlc?: I.OHLCType) => number {
  * @returns RSI Indicator 함수 (value: number = null, modify = false): number
  */
 export function RSI(periods: number)
-: (value?: number, modify?: boolean) => number
+: (value?: number, modify?: boolean) => number | null
 /**
  * RSI (Relative Strength Index)
  * @param periods 기간
@@ -217,9 +217,9 @@ export function RATIO(periods: number)
  * @returns RATIO Indicator 함수 (value: number = null, modify = false): number
  */
 export function RATIO(periods: number, MA: ValueIndicatorType, ...maArgs: unknown[])
-: (value?: number, modify?: boolean) => number
+: (value?: number, modify?: boolean) => number | null
 export function RATIO(periods: number, MA?: ValueIndicatorType, ...maArgs: unknown[])
-: (value?: number, modify?: boolean) => number {
+: (value?: number, modify?: boolean) => number | null {
   const maIndi = (MA)? MA(periods, ...maArgs) : EMA(periods, 1 / periods)
   let pre = null
   let val = null

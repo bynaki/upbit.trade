@@ -72,7 +72,7 @@ test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은�
     let got: DbTradeTickType
     for await (got of db.each()) {
     }
-    t.is(got.trade_time_utc, '00:00:59')
+    t.is(got!.trade_time_utc, '00:00:59')
   })
 
   test.serial('readyTrade(): 데이터베이스 테이블이 존재할 때 같은 인수를 전달하면 api에서 가져오지 않고 바로 데이터베이스에서 가져온다.', async t => {
@@ -86,7 +86,7 @@ test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은�
     let got: DbTradeTickType
     for await (got of db.each()) {
     }
-    t.is(got.trade_time_utc, '00:00:59')
+    t.is(got!.trade_time_utc, '00:00:59')
   })
 
   test.serial('readyTrade(): 데이터베이스 테이블이 존재할 때 인수를 생략할 수 있다.', async t => {
@@ -95,7 +95,7 @@ test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은�
     let got: DbTradeTickType
     for await (got of db.each()) {
     }
-    t.is(got.trade_time_utc, '00:00:59')
+    t.is(got!.trade_time_utc, '00:00:59')
   })
 
   test.serial('readyTrade(): 데이터베이스 테이블이 존재하더라도 그전 인수와 다르다면 api에서 새로 가져온다.', async t => {
@@ -109,7 +109,7 @@ test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은�
     let got: DbTradeTickType
     for await (got of db.each()) {
     }
-    t.is(got.trade_time_utc, '00:00:29')
+    t.is(got!.trade_time_utc, '00:00:29')
   })
 
   test.serial('readyTrade(): code별로 가져올 수 있다.', async t => {
@@ -372,7 +372,7 @@ function toCandleType(dbType: DbCandleMinuteType): Iu.CandleMinuteType {
     let pre: DbTradeTickType
     let count = 0
     for await (const tr of db.each()) {
-      if(pre) {
+      if(pre!) {
         t.true(pre.sequential_id < tr.sequential_id)
       }
       pre = tr

@@ -32,6 +32,11 @@ class TradeBot extends BaseBot {
     }
   }
 
+  // async onTrade(tr: I.TradeType) {
+  //     console.log('--------------------------------------------')
+  //     console.log(tr)
+  // }
+
   start = null
   finish = null
   onOrderbook = null

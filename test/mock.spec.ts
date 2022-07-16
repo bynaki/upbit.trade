@@ -20,6 +20,9 @@ import {
 import {
   format
 } from 'fecha'
+import {
+  isEqual, update,
+} from 'lodash'
 
 
 
@@ -28,19 +31,22 @@ class TestErrorBot extends BaseBot {
     super(code)
   }
 
-  async onTicker(tick) {}
-  async onOrderbook(ord) {}
-  onTrade = null
-  start = null
-  finish = null
+  async onTicker(tick: I.TickerType): Promise<void> {}
+  async onOrderbook(ord: I.OrderbookType): Promise<void> {}
+
+  onTrade = null!
+  start = null!
+  finish = null!
 }
 
+
+
 class TestTradeBot extends BaseBot {
-  public pre: I.TradeType = null
+  public pre: I.TradeType
   public count = 0
   public started = 0
   public finished = 0
-  private t: ExecutionContext = null
+  private t: ExecutionContext
 
   constructor(code: string) {
     super(code)
@@ -60,7 +66,7 @@ class TestTradeBot extends BaseBot {
 
   async onTrade(tr: I.TradeType) {
     this.count++
-    if(this.pre === null) {
+    if(!this.pre) {
       this.pre = tr
       return
     }
@@ -84,23 +90,25 @@ class TestTradeBot extends BaseBot {
     this.pre = tr
   }
 
-  onOrderbook = null
-  onTicker = null
+  onOrderbook = null!
+  onTicker = null!
 }
 
 
 
 class TestOrderBot extends BaseBot {
   private order: OrderMarket
+  private status: I.OrderType
 
   constructor(code: string, private readonly t: ExecutionContext) {
     super(code)
+    t.plan(28)
   }
 
   async start() {
     this.order = this.newOrderMarket()
     const error = this.t.throws(() => this.newOrder())
-    this.t.is(error.message, "'UPbitTradeMock' 모드에서는 'newOrder()'를 지원하지 않는다.")
+    this.t.is(error!.message, "'UPbitTradeMock' 모드에서는 'newOrder()'를 지원하지 않는다.")
   }
 
   async finish() {
@@ -108,8 +116,12 @@ class TestOrderBot extends BaseBot {
   }
 
   async onTrade(tr: I.TradeType) {
+    if(this.status?.side === 'ask' && this.status?.state === 'done') {
+      return
+    }
     if(!await this.order.updateStatus()) {
-      const status = await this.order.bid(10000)
+      this.status = await this.order.bid(10000)
+      const status = this.status
       // console.log(status)
       this.t.is(status.side, 'bid')
       this.t.is(status.ord_type, 'price')
@@ -118,38 +130,44 @@ class TestOrderBot extends BaseBot {
       this.t.is(status.market, 'KRW-BTC')
       this.t.is(status.executed_volume, 0)
       this.t.is(status.trades_count, 0)
-      const updated = await this.order.updateStatus()
+      return
+    }
+    const updated = await this.order.updateStatus()
+    if(updated.side === 'bid' && updated.state === 'cancel') {
       // console.log(updated)
-      this.t.is(updated.uuid, status.uuid)
+      this.t.is(updated.uuid, this.status!.uuid)
       this.t.is(updated.state, 'cancel')
       this.t.true(updated.executed_volume !== 0)
       this.t.is(updated.trades_count, 1)
       this.t.is(updated.trades.length, 1)
       this.t.is(updated.trades[0].funds, 10000)
-    }
-    if(tr.trade_time === '00:00:09' && this.order.status.side === 'bid') {
-      const status = await this.order.ask()
+      this.status = await this.order.ask()
+      const status = this.status
       // console.log(status)
       this.t.is(status.side, 'ask')
       this.t.is(status.ord_type, 'market')
-      this.t.is(status.price, null)
+      this.t.is(status.price, null!)
       this.t.is(status.state, 'wait')
       this.t.true(status.volume !== null)
       this.t.is(status.market, 'KRW-BTC')
       this.t.is(status.executed_volume, 0)
       this.t.is(status.trades_count, 0)
-      const updated = await this.order.updateStatus()
+      return
+    }
+    if(updated.side === 'ask' && updated.state === 'done') {
       // console.log(updated)
-      this.t.is(updated.uuid, status.uuid)
+      this.t.is(updated.uuid, this.status!.uuid)
       this.t.is(updated.state, 'done')
       this.t.true(updated.executed_volume !== 0)
       this.t.is(updated.trades_count, 1)
       this.t.is(updated.trades.length, 1)
+      this.status = updated
+      return
     }
   }
 
-  onOrderbook = null
-  onTicker = null
+  onOrderbook = null!
+  onTicker = null!
 }
 
 
@@ -200,19 +218,19 @@ class TestTradeCandleBot extends BaseBot {
     }
   }
 
-  start(socket): Promise<void> {
+  async start(socket): Promise<void> {
     this.t.pass()
     return
   }
 
-  finish(): Promise<void> {
+  async finish(): Promise<void> {
     this.t.pass()
     return
   }
 
-  onTrade = null
-  onOrderbook = null
-  onTicker = null
+  onTrade = null!
+  onOrderbook = null!
+  onTicker = null!
 }
 
 
@@ -256,19 +274,19 @@ class TestCandleBot extends BaseBot {
     }
   }
 
-  start(): Promise<void> {
+  async start(): Promise<void> {
     this.t.pass()
     return
   }
 
-  finish(): Promise<void> {
+  async finish(): Promise<void> {
     this.t.pass()
     return
   }
 
-  onTrade = null
-  onOrderbook = null
-  onTicker = null
+  onTrade = null!
+  onOrderbook = null!
+  onTicker = null!
 }
 
 
@@ -316,10 +334,10 @@ test.serial('UPbitTradeMock: mock 모드에서는 onTicker()와 onOrderbook()을
   }
 })
 
-test.serial.only('UPbitTradeMock', async t => {
+test.serial('UPbitTradeMock', async t => {
   const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'trade', {
     daysAgo: 0,
-    to: '00:00:10',
+    to: '00:10:10',
   })
   mock.addBotClass(TestTradeBot, [
     'KRW-BTC',
@@ -332,14 +350,14 @@ test.serial.only('UPbitTradeMock', async t => {
     t.is(bot.started, 1)
     t.is(bot.finished, 1)
     t.true(bot.count > 0)
-    t.is(bot.pre.trade_time, '00:00:09')
+    t.is(bot.pre.trade_time, '00:10:09')
   }
 })
 
 test.serial('OrderMarketMock', async t => {
   const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'order_market', {
     daysAgo: 0,
-    to: '00:00:10',
+    to: '00:10:10',
   })
   mock.addBot(new TestOrderBot('KRW-BTC', t))
   await mock.open()

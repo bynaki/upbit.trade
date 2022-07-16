@@ -29,7 +29,8 @@ test('UPbitSequence#chunkTradesTicks()', async t => {
       return tr
     }
     t.true(pre.sequential_id > tr.sequential_id)
-  }, null)
+    return tr
+  })
 })
 
 test('UPbitSequence#allTradesTicks()', async t => {
@@ -46,11 +47,12 @@ test('UPbitSequence#allTradesTicks()', async t => {
       return tr
     }
     t.true(pre.sequential_id > tr.sequential_id)
-  }, null)
+    return tr
+  })
 })
 
 test('UPbitSequence#eachTradesTicks()', async t => {
-  let pre: Iu.TradeTickType
+  let pre: Iu.TradeTickType = null!
   for await (let tr of api.eachTradesTicks({
     market: 'KRW-BTC',
     daysAgo: 0,
@@ -118,7 +120,7 @@ test('UPbitSequence#allCandlesMinutes()', async t => {
 test('UPbitSequence#eachCandlesMinutes()', async t => {
   let time = new Date('2021-08-20T01:00:00+00:00').getTime()
   let count = 0
-  let latest: Iu.CandleMinuteType
+  let latest: Iu.CandleMinuteType = null!
   for await (let c of api.eachCandlesMinutes(1, {
     market: 'KRW-BTC',
     from: '2021-08-20T00:00:00+00:00',

@@ -116,9 +116,9 @@ export interface TickerType extends ResType {
   highest_52_week_date: string    // h52wdt	52주 최고가 달성일	String	yyyy-MM-dd
   lowest_52_week_price: number    // l52wp	52주 최저가	Double	
   lowest_52_week_date: string     // l52wdt	52주 최저가 달성일	String	yyyy-MM-dd
-  trade_status: string            // ts	거래상태 *deprecated	String	
+  // trade_status: string            // ts	거래상태 *deprecated	String	
   market_state: string            // ms	거래상태	String	PREVIEW : 입금지원 ACTIVE : 거래지원가능 DELISTED : 거래지원종료
-  market_state_for_ios: string    // msfi	거래 상태 *deprecated	String	
+  // market_state_for_ios: string    // msfi	거래 상태 *deprecated	String	
   is_trading_suspended: boolean   // its	거래 정지 여부	Boolean	
   delisting_date: string          // dd	상장폐지일	Date	
   market_warning: string          // mw	유의 종목 여부	String	NONE : 해당없음 CAUTION : 투자유의
@@ -167,6 +167,22 @@ export interface PriceTimeType {
 export enum EventType {
   Candle = 'candle',
 }
+
+export interface Message<S> {
+  where: string
+  name: string
+  timestamp: number
+  description: S
+}
+
+export interface OrderMessage extends Message<Iu.OrderDetailType> {
+  name: 'bid' | 'ask' | 'cancel_bid' | 'cancel_ask'
+}
+
+export interface ErrorMessage extends Message<unknown> {
+  name: 'error'
+}
+
 
 export interface OrderType extends Iu.OrderType {}
 export interface OrderDetailType extends Iu.OrderDetailType {}
