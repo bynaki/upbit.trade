@@ -4,12 +4,12 @@ import test, {
 import {
   BaseBot,
   types as I,
-  OrderMarket,
   UPbitTradeMock,
-  addCandleListener,
   UPbitSequence,
   getConfig,
   UPbitCandleMock,
+  subscribe,
+  UPbitSocket,
 } from '../src'
 import {
   join,
@@ -21,8 +21,9 @@ import {
   format
 } from 'fecha'
 import {
-  isEqual, update,
-} from 'lodash'
+  logger, MemoryWriter,
+} from 'fourdollar'
+
 
 
 
@@ -31,144 +32,123 @@ class TestErrorBot extends BaseBot {
     super(code)
   }
 
+  @subscribe.ticker
   async onTicker(tick: I.TickerType): Promise<void> {}
+  @subscribe.orderbook
   async onOrderbook(ord: I.OrderbookType): Promise<void> {}
-
-  onTrade = null!
-  start = null!
-  finish = null!
 }
 
+
+const writer = new MemoryWriter()
 
 
 class TestTradeBot extends BaseBot {
   public pre: I.TradeType
   public count = 0
-  public started = 0
-  public finished = 0
-  private t: ExecutionContext
 
   constructor(code: string) {
     super(code)
   }
 
-  setTestObject(t: ExecutionContext) {
-    this.t = t
+  @logger(writer)
+  log(msg: any) {
+    return msg
   }
 
-  async start() {
-    this.started += 1
+  @subscribe.start
+  async start(socket: UPbitSocket) {
+    this.log('started')
   }
 
+  @subscribe.finish
   async finish() {
-    this.finished += 1
+    this.log('finished')
   }
 
+  @subscribe.trade
   async onTrade(tr: I.TradeType) {
-    this.count++
-    if(!this.pre) {
-      this.pre = tr
-      return
-    }
-    this.t.true(tr.sequential_id > this.pre.sequential_id)
-    this.t.deepEqual(Object.keys(tr), [
-      'type',
-      'code',
-      'trade_price',
-      'trade_volume',
-      'ask_bid',
-      'prev_closing_price',
-      'change',
-      'change_price',
-      'trade_date',
-      'trade_time',
-      'trade_timestamp',
-      'timestamp',
-      'sequential_id',
-      'stream_type',
-    ])
-    this.pre = tr
+    this.log(this.name)
+    this.log(tr.sequential_id)
+    this.log(tr.trade_time)
+    this.log(Object.keys(tr))
   }
-
-  onOrderbook = null!
-  onTicker = null!
 }
 
 
 
-class TestOrderBot extends BaseBot {
-  private order: OrderMarket
-  private status: I.OrderType
+// class TestOrderBot extends BaseBot {
+//   private order: OrderMarket
+//   private status: I.OrderType
 
-  constructor(code: string, private readonly t: ExecutionContext) {
-    super(code)
-    t.plan(28)
-  }
+//   constructor(code: string, private readonly t: ExecutionContext) {
+//     super(code)
+//     t.plan(28)
+//   }
 
-  async start() {
-    this.order = this.newOrderMarket()
-    const error = this.t.throws(() => this.newOrder())
-    this.t.is(error!.message, "'UPbitTradeMock' 모드에서는 'newOrder()'를 지원하지 않는다.")
-  }
+//   async start() {
+//     this.order = this.newOrderMarket()
+//     const error = this.t.throws(() => this.newOrder())
+//     this.t.is(error!.message, "'UPbitTradeMock' 모드에서는 'newOrder()'를 지원하지 않는다.")
+//   }
 
-  async finish() {
-    // console.log(this.order.history)
-  }
+//   async finish() {
+//     // console.log(this.order.history)
+//   }
 
-  async onTrade(tr: I.TradeType) {
-    if(this.status?.side === 'ask' && this.status?.state === 'done') {
-      return
-    }
-    if(!await this.order.updateStatus()) {
-      this.status = await this.order.bid(10000)
-      const status = this.status
-      // console.log(status)
-      this.t.is(status.side, 'bid')
-      this.t.is(status.ord_type, 'price')
-      this.t.is(status.price, 10000)
-      this.t.is(status.state, 'wait')
-      this.t.is(status.market, 'KRW-BTC')
-      this.t.is(status.executed_volume, 0)
-      this.t.is(status.trades_count, 0)
-      return
-    }
-    const updated = await this.order.updateStatus()
-    if(updated.side === 'bid' && updated.state === 'cancel') {
-      // console.log(updated)
-      this.t.is(updated.uuid, this.status!.uuid)
-      this.t.is(updated.state, 'cancel')
-      this.t.true(updated.executed_volume !== 0)
-      this.t.is(updated.trades_count, 1)
-      this.t.is(updated.trades.length, 1)
-      this.t.is(updated.trades[0].funds, 10000)
-      this.status = await this.order.ask()
-      const status = this.status
-      // console.log(status)
-      this.t.is(status.side, 'ask')
-      this.t.is(status.ord_type, 'market')
-      this.t.is(status.price, null!)
-      this.t.is(status.state, 'wait')
-      this.t.true(status.volume !== null)
-      this.t.is(status.market, 'KRW-BTC')
-      this.t.is(status.executed_volume, 0)
-      this.t.is(status.trades_count, 0)
-      return
-    }
-    if(updated.side === 'ask' && updated.state === 'done') {
-      // console.log(updated)
-      this.t.is(updated.uuid, this.status!.uuid)
-      this.t.is(updated.state, 'done')
-      this.t.true(updated.executed_volume !== 0)
-      this.t.is(updated.trades_count, 1)
-      this.t.is(updated.trades.length, 1)
-      this.status = updated
-      return
-    }
-  }
+//   async onTrade(tr: I.TradeType) {
+//     if(this.status?.side === 'ask' && this.status?.state === 'done') {
+//       return
+//     }
+//     if(!await this.order.updateStatus()) {
+//       this.status = await this.order.bid(10000)
+//       const status = this.status
+//       // console.log(status)
+//       this.t.is(status.side, 'bid')
+//       this.t.is(status.ord_type, 'price')
+//       this.t.is(status.price, 10000)
+//       this.t.is(status.state, 'wait')
+//       this.t.is(status.market, 'KRW-BTC')
+//       this.t.is(status.executed_volume, 0)
+//       this.t.is(status.trades_count, 0)
+//       return
+//     }
+//     const updated = await this.order.updateStatus()
+//     if(updated.side === 'bid' && updated.state === 'cancel') {
+//       // console.log(updated)
+//       this.t.is(updated.uuid, this.status!.uuid)
+//       this.t.is(updated.state, 'cancel')
+//       this.t.true(updated.executed_volume !== 0)
+//       this.t.is(updated.trades_count, 1)
+//       this.t.is(updated.trades.length, 1)
+//       this.t.is(updated.trades[0].funds, 10000)
+//       this.status = await this.order.ask()
+//       const status = this.status
+//       // console.log(status)
+//       this.t.is(status.side, 'ask')
+//       this.t.is(status.ord_type, 'market')
+//       this.t.is(status.price, null!)
+//       this.t.is(status.state, 'wait')
+//       this.t.true(status.volume !== null)
+//       this.t.is(status.market, 'KRW-BTC')
+//       this.t.is(status.executed_volume, 0)
+//       this.t.is(status.trades_count, 0)
+//       return
+//     }
+//     if(updated.side === 'ask' && updated.state === 'done') {
+//       // console.log(updated)
+//       this.t.is(updated.uuid, this.status!.uuid)
+//       this.t.is(updated.state, 'done')
+//       this.t.true(updated.executed_volume !== 0)
+//       this.t.is(updated.trades_count, 1)
+//       this.t.is(updated.trades.length, 1)
+//       this.status = updated
+//       return
+//     }
+//   }
 
-  onOrderbook = null!
-  onTicker = null!
-}
+//   onOrderbook = null!
+//   onTicker = null!
+// }
 
 
 
@@ -186,7 +166,7 @@ class TestTradeCandleBot extends BaseBot {
     t.plan(4)
   }
   
-  @addCandleListener(1, 10)
+  @subscribe.candle(1, 10)
   async onCandle1m(ohlcs: I.OHLCType[]) {
     if(ohlcs.length === 3 && this.done === false) {
       const rev = ohlcs.reverse()
@@ -218,75 +198,84 @@ class TestTradeCandleBot extends BaseBot {
     }
   }
 
-  async start(socket): Promise<void> {
+  @subscribe.start
+  async start(socket: UPbitSocket): Promise<void> {
     this.t.pass()
     return
   }
 
+  @subscribe.finish
   async finish(): Promise<void> {
     this.t.pass()
     return
   }
-
-  onTrade = null!
-  onOrderbook = null!
-  onTicker = null!
 }
 
 
 
+
 class TestCandleBot extends BaseBot {
-  t: ExecutionContext
+  // t: ExecutionContext
   ohlcs: I.OHLCType[] = []
 
   constructor(code: string) {
     super(code)
   }
 
-  setTestObject(t: ExecutionContext) {
-    this.t = t
-    t.plan(14)
+  @logger(writer)
+  log(msg: any) {
+    return msg
   }
+
+  // setTestObject(t: ExecutionContext) {
+  //   this.t = t
+  //   t.plan(14)
+  // }
   
-  @addCandleListener(10, 10)
+  // @subscribe.candle(10, 10)
+  // async onCandle10m(ohlcs: I.OHLCType[]) {
+  //   const from = '2021-09-13T00:00:00+00:00'
+  //   const to = '2021-09-13T01:40:00+00:00'
+  //   if(ohlcs.length === 10) {
+  //     const api = new UPbitSequence(getConfig().upbit_keys)
+  //     const cc = (await api.allCandlesMinutes(10, {
+  //       market: this.code,
+  //       from,
+  //       to,
+  //     }))
+  //     ohlcs.forEach((o, i) => {
+  //       this.t.deepEqual(o, {
+  //         open: cc[i].opening_price,
+  //         high: cc[i].high_price,
+  //         low: cc[i].low_price,
+  //         close: cc[i].trade_price,
+  //         volume: cc[i].candle_acc_trade_volume,
+  //         timestamp: new Date(cc[i].candle_date_time_utc + '+00:00').getTime(),
+  //       })
+  //     })
+  //     this.t.is(ohlcs[ohlcs.length - 1].timestamp, new Date(from).getTime())
+  //     this.t.is(ohlcs[0].timestamp, new Date(to).getTime() - (1000 * 60 * 10))
+  //   }
+  // }
+
+  @subscribe.candle(10, 10)
   async onCandle10m(ohlcs: I.OHLCType[]) {
     const from = '2021-09-13T00:00:00+00:00'
     const to = '2021-09-13T01:40:00+00:00'
-    if(ohlcs.length === 10) {
-      const api = new UPbitSequence(getConfig().upbit_keys)
-      const cc = (await api.allCandlesMinutes(10, {
-        market: this.code,
-        from,
-        to,
-      }))
-      ohlcs.forEach((o, i) => {
-        this.t.deepEqual(o, {
-          open: cc[i].opening_price,
-          high: cc[i].high_price,
-          low: cc[i].low_price,
-          close: cc[i].trade_price,
-          volume: cc[i].candle_acc_trade_volume,
-          timestamp: new Date(cc[i].candle_date_time_utc + '+00:00').getTime(),
-        })
-      })
-      this.t.is(ohlcs[ohlcs.length - 1].timestamp, new Date(from).getTime())
-      this.t.is(ohlcs[0].timestamp, new Date(to).getTime() - (1000 * 60 * 10))
-    }
+    this.log(ohlcs[0])
   }
 
-  async start(): Promise<void> {
-    this.t.pass()
+  @subscribe.start
+  async start(socket: UPbitSocket): Promise<void> {
+    this.log('started')
     return
   }
 
+  @subscribe.finish
   async finish(): Promise<void> {
-    this.t.pass()
+    this.log('finished')
     return
   }
-
-  onTrade = null!
-  onOrderbook = null!
-  onTicker = null!
 }
 
 
@@ -318,7 +307,7 @@ test.serial('intro', async t => {
 
 
 
-test.serial('UPbitTradeMock: mock 모드에서는 onTicker()와 onOrderbook()을 제공하지 않는다.', async t => {
+test.serial('UPbitTradeMock: mock 모드에서는 tiker와 orderbook을 제공하지 않는다.', async t => {
   const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'trade', {
     daysAgo: 0,
     to: '00:00:10',
@@ -327,41 +316,83 @@ test.serial('UPbitTradeMock: mock 모드에서는 onTicker()와 onOrderbook()을
     'KRW-BTC',
     'KRW-ETH',
   ])
+  const bots = mock.getBots()
+  t.is(bots[0].name, 'TestErrorBot:KRW-BTC')
+  t.is(bots[1].name, 'TestErrorBot:KRW-ETH')
   try {
     await mock.open()
   } catch(e) {
-    t.is(e.message, '"mock" 모드에서는 "onTicker()" 를 제공하지 않는다.')
+    t.is(e.message, '"mock" 모드에서는 "ticker" 를 제공하지 않는다.')
   }
 })
 
 test.serial('UPbitTradeMock', async t => {
+  writer.clear()
   const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'trade', {
     daysAgo: 0,
-    to: '00:10:10',
+    to: '00:00:02',
   })
   mock.addBotClass(TestTradeBot, [
     'KRW-BTC',
-    // 'KRW-ETH',
+    'KRW-ETH',
   ])
-  const bots: TestTradeBot[] = mock.getBots(I.ReqType.Trade)
-  bots.forEach(bot => bot.setTestObject(t))
   await mock.open()
-  for(let bot of bots) {
-    t.is(bot.started, 1)
-    t.is(bot.finished, 1)
-    t.true(bot.count > 0)
-    t.is(bot.pre.trade_time, '00:10:09')
+  console.log(`memory.length = ${writer.memory.length}`)
+  const m = writer.memory
+  t.true(m.length >= 4)
+  t.is(m[0], 'started')
+  t.is(m[1], 'started')
+  t.is(m[m.length - 1], 'finished')
+  t.is(m[m.length - 2], 'finished')
+  m.splice(0, 2)
+  m.splice(m.length - 2, 2)
+  let preSeq
+  let preName
+  while(m.length > 0) {
+    const name: string = m.shift()
+    const seq: number = m.shift()
+    const time: string = m.shift()
+    const keys: string[] = m.shift()
+    if(preName) {
+      t.true(seq >= preSeq)
+      if(seq === preSeq) {
+        t.is(preName, 'TestTradeBot:KRW-BTC')
+        t.is(name, 'TestTradeBot:KRW-ETH')
+      }
+      preName = name
+      preSeq = seq
+    } else {
+      preName = name
+      preSeq = seq
+    }
+    t.true(['00:00:00', '00:00:01'].some(t => time === t))
+    t.deepEqual(keys, [
+      'type',
+      'code',
+      'trade_price',
+      'trade_volume',
+      'ask_bid',
+      'prev_closing_price',
+      'change',
+      'change_price',
+      'trade_date',
+      'trade_time',
+      'trade_timestamp',
+      'timestamp',
+      'sequential_id',
+      'stream_type',
+    ])
   }
 })
 
-test.serial('OrderMarketMock', async t => {
-  const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'order_market', {
-    daysAgo: 0,
-    to: '00:10:10',
-  })
-  mock.addBot(new TestOrderBot('KRW-BTC', t))
-  await mock.open()
-})
+// test.serial('OrderMarketMock', async t => {
+//   const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'order_market', {
+//     daysAgo: 0,
+//     to: '00:10:10',
+//   })
+//   mock.addBot(new TestOrderBot('KRW-BTC', t))
+//   await mock.open()
+// })
 
 test.serial('TestTradeCandleBot', async t => {
   const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'trade_candle', {
@@ -375,12 +406,38 @@ test.serial('TestTradeCandleBot', async t => {
 })
 
 test.serial('UPbitCandleMock', async t => {
+  t.plan(16)
+  writer.clear()
+  const from = '2021-09-13T00:00:00+00:00'
+  const to = '2021-09-13T01:40:00+00:00'
   const mock = new UPbitCandleMock(join(__dirname, 'test-mock.db'), 'candle', {
-    from: '2021-09-13T00:00:00+00:00',
-    to: '2021-09-13T01:40:00+00:00',
+    from,
+    to,
   })
   const bot = new TestCandleBot('KRW-BTC')
-  bot.setTestObject(t)
   mock.addBot(bot)
   await mock.open()
+  const m = writer.memory
+  t.is(m.shift(), 'started')
+  t.is(m.pop(), 'finished')
+  t.is(m.length, 10)
+  const api = new UPbitSequence(getConfig().upbit_keys)
+  const cc = (await api.allCandlesMinutes(10, {
+    market: bot.code,
+    from,
+    to,
+  }))
+  t.is(cc.length, 10)
+  m.reverse().forEach((o, i) => {
+    t.deepEqual(o, {
+      open: cc[i].opening_price,
+      high: cc[i].high_price,
+      low: cc[i].low_price,
+      close: cc[i].trade_price,
+      volume: cc[i].candle_acc_trade_volume,
+      timestamp: new Date(cc[i].candle_date_time_utc + '+00:00').getTime(),
+    })
+  })
+  t.is(m[m.length - 1].timestamp, new Date(from).getTime())
+  t.is(m[0].timestamp, new Date(to).getTime() - (1000 * 60 * 10))
 })

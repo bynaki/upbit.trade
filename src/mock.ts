@@ -23,7 +23,10 @@ import {
   uniq,
 } from 'lodash'
 import { readyCandle } from './database'
-import { OHLCType } from './types'
+import {
+  Observable,
+  types as If,
+} from 'fourdollar'
 
 
 
@@ -49,17 +52,23 @@ export class UPbitTradeMock extends BaseUPbitSocket {
     }
   }
 
+  // addBot<B extends BaseBot>(...bots: B[]): void {
+  //   bots.forEach(bot => bot.constructor.prototype.prototype = TradeMock)
+  //   super.addBot(...bots)
+  // }
+
   async open() {
     if(this.getCodes(I.ReqType.Ticker).length !== 0) {
-      throw new Error('"mock" 모드에서는 "onTicker()" 를 제공하지 않는다.')
+      throw new Error('"mock" 모드에서는 "ticker" 를 제공하지 않는다.')
     }
     if(this.getCodes(I.ReqType.Orderbook).length !== 0) {
-      throw new Error('"mock" 모드에서는 "onOrderbook()" 을 제공하지 않는다.')
+      throw new Error('"mock" 모드에서는 "orderbook" 을 제공하지 않는다.')
     }
-    const bots = this.getBots(I.ReqType.Trade)
-    bots.forEach(bot => {
-      bot['_furtiveCbs'] = []
-    })
+    // todo:
+    // const bots = this.getBots(I.ReqType.Trade)
+    // bots.forEach(bot => {
+    //   bot['_furtiveCbs'] = []
+    // })
     const codes = this.getCodes(I.ReqType.Trade)
     const table = await readyTrade(this.args.filename, this.args.tableName, {
       codes,
@@ -70,19 +79,20 @@ export class UPbitTradeMock extends BaseUPbitSocket {
     for await (let tr of table.each()) {
       const converted = this.convertTradeType(tr)
       const bots = this.getBots(I.ReqType.Trade, converted.code)
-      bots.forEach(b => b['_furtiveCbs'].forEach(cb => cb(tr)))
-      await Promise.all(bots.map(bot => bot.trigger(converted)))
+      // todo:
+      // bots.forEach(b => b['_furtiveCbs'].forEach(cb => cb(tr)))
+      await Promise.all(bots.map(bot => bot['trigger'](converted)))
     }
     await this.finish()
   }
 
-  newOrderMarket(bot: BaseBot): AbstractOrderMarket {
-    return new OrderMarketMock(bot)
-  }
+  // newOrderMarket(bot: BaseBot): AbstractOrderMarket {
+  //   return new OrderMarketMock(bot)
+  // }
 
-  newOrder(bot: BaseBot): AbstractOrder {
-    throw new Error("'UPbitTradeMock' 모드에서는 'newOrder()'를 지원하지 않는다.")
-  }
+  // newOrder(bot: BaseBot): AbstractOrder {
+  //   throw new Error("'UPbitTradeMock' 모드에서는 'newOrder()'를 지원하지 않는다.")
+  // }
 
   private convertTradeType(tr: DbTradeTickType): I.TradeType {
     return {
@@ -118,11 +128,11 @@ export class UPbitCandleMock extends BaseUPbitSocket {
     }
     override: 'yes'|'no'
   }
-  private wraps: {
-    [index: string]: {
-      [index: number]: ((ohlc: OHLCType) => Promise<void>)[]
-    }
-  }
+  // private wraps: {
+  //   [index: string]: {
+  //     [index: number]: ((ohlc: I.OHLCType) => Promise<void>)[]
+  //   }
+  // }
 
   constructor(filename: string, tableName: string, params: {
     from: string
@@ -137,32 +147,44 @@ export class UPbitCandleMock extends BaseUPbitSocket {
     }
   }
 
-  async open(): Promise<void> {
-    this.wraps = {}
-    this.getBots().forEach(bot => {
-      if(!this.wraps[bot.code]) {
-        this.wraps[bot.code] = {}
-      }
-      const cbs = bot.getCandleCallbacks()
-      cbs.forEach(cb => {
-        if(!this.wraps[bot.code][cb.args.minutes]) {
-          this.wraps[bot.code][cb.args.minutes] = []
+  addBot<B extends BaseBot>(...bots: B[]): void {
+    bots.forEach(bot => {
+      const ohlcs: {
+        [min: number]: {
+          ohlcs: I.OHLCType[]
+          limit: number
         }
-        const ohlcSeq: OHLCType[] = []
-        this.wraps[bot.code][cb.args.minutes].push((ohlc: OHLCType): Promise<void> => {
-          ohlcSeq.unshift(ohlc)
-          if(ohlcSeq.length > cb.args.limit) {
-            ohlcSeq.pop()
+      } = {}
+      bot['triggerB'] = async function(min: 1|3|5|10|15|30|60|240, ohlc: I.OHLCType): Promise<void> {
+        if(!ohlcs[min]) {
+          ohlcs[min] = {
+            ohlcs: [],
+            limit: 10,
           }
-          const copy: OHLCType[] = []
-          ohlcSeq.forEach(o => copy.push(Object.assign({}, o)))
-          return bot[cb.callback](copy)
-        })
-      })
+        }
+        const data = ohlcs[min]
+        data.ohlcs.unshift(ohlc)
+        if(data.ohlcs.length > data.limit) {
+          data.ohlcs.pop()
+        }
+        await Promise.all(this._subscribers[min].subscribers.map(sub => sub.next(data.ohlcs)))
+        return
+      }
     })
-    //
-    const comins = uniq(this.getBots().map(bot => bot.getCandleCallbacks()
-      .map(cb => `${bot.code}:${cb.args.minutes}`)).flat())
+    super.addBot(...bots)
+  }
+
+  async open(): Promise<void> {
+    // const wraps: {
+    //   [code: string]: {
+    //     [min: number]: (ohlc: I.OHLCType) => Promise<void>
+    //   },
+    // } = {}
+    const bots = this.getBots()
+    const keys = ['1', '3', '5', '10', '15', '30', '60', '240']
+    const comins = bots.map(bot => {
+      return keys.filter(key => bot.subscribers[key]).map(min => `${bot.code}:${min}`)
+    }).flat()
     const table = await readyCandle(this.args.filename, this.args.tableName, {
       comins,
       from: this.args.params.from,
@@ -171,19 +193,22 @@ export class UPbitCandleMock extends BaseUPbitSocket {
     await this.start()
     for await (const c of table.each()) {
       const converted = this.convertCandleType(c)
+      this.getBots(I.ReqType.Trade, c.market).map(bot => {
+        return bot['triggerB'](c.unit as 1|3|5|10|15|30|60|240, converted)
+      })
       // await Promise.all(this.wraps[c.market][c.unit].map(wrap => () => wrap(converted)))
-      await Promise.all(this.wraps[c.market][c.unit].map(wrap => wrap(converted)))
+      // await Promise.all(this.wraps[c.market][c.unit].map(wrap => wrap(converted)))
     }
     await this.finish()
   }
 
-  newOrderMarket(bot: BaseBot): AbstractOrderMarket {
-    return new OrderMarketMock(bot)
-  }
+  // newOrderMarket(bot: BaseBot): AbstractOrderMarket {
+  //   return new OrderMarketMock(bot)
+  // }
 
-  newOrder(bot: BaseBot): AbstractOrder {
-    throw new Error("'UPbitTradeMock' 모드에서는 'newOrder()'를 지원하지 않는다.")
-  }
+  // newOrder(bot: BaseBot): AbstractOrder {
+  //   throw new Error("'UPbitTradeMock' 모드에서는 'newOrder()'를 지원하지 않는다.")
+  // }
 
   private convertCandleType(dbCandle: DbCandleMinuteType): I.OHLCType {
     return {
@@ -413,3 +438,117 @@ class OrderMarketMock extends AbstractOrderMarket {
     this.bot['_furtiveCbs'] = this.bot['_furtiveCbs'].filter(cc => cc !== cb)
   }
 }
+
+
+
+
+// export class TradeMock extends BaseBot {
+//   constructor(code: string) {
+//     super(code)
+//   }
+// }
+
+
+
+
+// export class CandleMock extends BaseBot {
+//   private _ohlcs: {
+//     [min: number]: {
+//       ohlcs: I.OHLCType[],
+//       limit: number,
+//     },
+//   } = {}
+
+//   constructor(code: string) {
+//     super(code)
+//   }
+
+//   latest(type: I.ReqType): any {
+//     throw new Error('CandleMock에서는 latest()를 허용하지 않는다.')
+//   }
+
+//   observer(type: I.EventType.Trade): Observable<I.TradeType>
+//   observer(type: I.EventType.Orderbook): Observable<I.OrderbookType>
+//   observer(type: I.EventType.Ticker): Observable<I.TickerType>
+//   observer(type: I.EventType.Candle, min: 1 | 3 | 5 | 10 | 15 | 30 | 60 | 240, limit: number): Observable<I.OHLCType[]>
+//   observer(type: I.EventType.Start): Observable<BaseUPbitSocket>
+//   observer(type: I.EventType.Finish): Observable<void>
+//   observer(type: I.EventType, ...args: unknown[]): Observable<unknown> {
+//     if(!I.EventType.Candle) {
+//       throw new Error('CandleMock에서는 I.EventType.Candle 만 허용한다.')
+//     }
+//     return this._observerB(args[0] as 1|3|5|10|15|30|60|240, args[1] as number)
+//   }
+
+//   private _observerB(min: 1|3|5|10|15|30|60|240, limit: number): Observable<I.OHLCType[]> {
+//     if(!this._subscribers[min]) {
+//       this._subscribers[min] = {
+//         observable: new Observable<I.OHLCType[]>(sub => {
+//           this._subscribers[min].subscribers.push(sub)
+//           return () => {
+//             this._subscribers[min].subscribers = 
+//               this._subscribers[min].subscribers.filter(s => !s.closed)
+//           }
+//         }),
+//         subscribers: [],
+//       }
+//       this._ohlcs[min] = {
+//         ohlcs: [],
+//         limit,
+//       }
+//     }
+//     return this._subscribers[min].observable
+//   }
+  
+//   subscribe(type: I.EventType.Trade, sub: If.Observer<I.TradeType>): If.Subscription
+//   subscribe(type: I.EventType.Orderbook, sub: If.Observer<I.OrderbookType>): If.Subscription
+//   subscribe(type: I.EventType.Ticker, sub: If.Observer<I.TickerType>): If.Subscription
+//   subscribe(type: I.EventType.Start, sub: If.Observer<BaseUPbitSocket>): If.Subscription
+//   subscribe(type: I.EventType.Finish, sub: If.Observer<void>): If.Subscription
+//   subscribe(type: I.EventType.Candle, opts: { min: 1 | 3 | 5 | 10 | 15 | 30 | 60 | 240; limit: number }, sub: If.Observer<I.OHLCType[]>): If.Subscription
+//   subscribe<T>(type: I.EventType, sub: If.Observer<T>): If.Subscription
+//   subscribe(type: I.EventType, arg1: any, arg2?: any): If.Subscription {
+//     if(!I.EventType.Candle) {
+//       throw new Error('CandleMock에서는 I.EventType.Candle 만 허용한다.')
+//     }
+//     return this._subscribeB(arg1, arg2)
+//   }
+
+//   private _subscribeB(opts: {
+//     min: 1|3|5|10|15|30|60|240
+//     limit: number
+//   }, sub: If.Observer<I.OHLCType[]>): If.Subscription {
+//     return this._observerB(opts.min, opts.limit).subscribe(sub)
+//   }
+
+//   async triggerB(min: 1|3|5|10|15|30|60|240, ohlc: I.OHLCType): Promise<void> {
+//     const data = this._ohlcs[min]
+//     data.ohlcs.unshift(ohlc)
+//     if(data.ohlcs.length > data.limit) {
+//       data.ohlcs.pop()
+//     }
+//     await Promise.all(this._subscribers[min].subscribers.map(sub => sub.next(data.ohlcs)))
+//     return
+//   }
+
+//   usingEvent(type: I.EventType): boolean {
+//     if(type === I.EventType.Trade && this.usingCandle()) {
+//       return true
+//     }
+//     return false
+//   }
+// }
+
+
+// export function tradeMock(constructor: Function) {
+//   constructor.prototype = TradeMock
+//   return constructor as any
+// }
+
+
+// @tradeMock
+// class TestBot extends BaseBot {
+//   constructor(name: string) {
+//     super(name)
+//   }
+// }

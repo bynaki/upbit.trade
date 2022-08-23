@@ -6,6 +6,7 @@ import {
   BaseBot,
   UPbitSocket,
   types as I,
+  subscribe,
 } from '../index'
 
 
@@ -17,11 +18,13 @@ class TestLatestDatasBot extends BaseBot {
     super(code)
   }
 
+  @subscribe.start
   start(socket: UPbitSocket): Promise<void> {
     this.socket = socket
     return
   }
 
+  @subscribe.trade
   async onTrade(tr: I.TradeType) {
     console.log('Latest Trade:')
     console.log(this.latest(I.ReqType.Trade))
@@ -34,9 +37,10 @@ class TestLatestDatasBot extends BaseBot {
     this.socket.close(true)
   }
 
+  @subscribe.orderbook
   async onOrderbook(ob: I.OrderbookType) {}
+  @subscribe.ticker
   async onTicker(tk: I.TickerType) {}
-  finish = null
 }
 
 

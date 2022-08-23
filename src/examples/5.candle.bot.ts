@@ -6,7 +6,7 @@ import {
   BaseBot,
   UPbitSocket,
   types as I,
-  addCandleListener,
+  subscribe,
 } from '../index'
 
 
@@ -17,16 +17,10 @@ class TestCandleBot extends BaseBot {
   }
 
   // 1분봉 10개까지 저장
-  @addCandleListener(1, 10)
+  @subscribe.candle(1, 10)
   aMinute(ohlcs: I.OHLCType[]) {
     console.log(ohlcs)
   }
-
-  onTrade = null
-  onOrderbook = null
-  onTicker = null
-  start = null
-  finish = null
 }
 
 

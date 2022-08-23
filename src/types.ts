@@ -28,6 +28,15 @@ export enum ReqType {
   Ticker = 'ticker',
 }
 
+export enum EventType {
+  Trade = 'trade',
+  Orderbook = 'orderbook',
+  Ticker = 'ticker',
+  Candle = 'candle',
+  Start = 'start',
+  Finish = 'finish',
+}
+
 export enum SocketState {
   Connecting = CONNECTING,
   Open = OPEN,
@@ -162,10 +171,6 @@ export interface OHLCType {
 export interface PriceTimeType {
   price: number
   timestamp: number
-}
-
-export enum EventType {
-  Candle = 'candle',
 }
 
 export interface Message<S> {

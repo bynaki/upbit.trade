@@ -6,7 +6,11 @@ import {
   BaseBot,
   UPbitSocket,
   types as I,
+  subscribe,
 } from '../index'
+import {
+  logger,
+} from 'fourdollar'
 
 
 
@@ -17,24 +21,29 @@ class TestTickerBot extends BaseBot {
     super(code)
   }
 
+  @logger()
+  log(msg: string) {
+    return `${new Date().toLocaleString()} > ${msg}`
+  }
+
+  @subscribe.start
   start(socket: UPbitSocket): Promise<void> {
-    this.log('stated...')
+    this.log('started...')
     return
   }
 
+  @subscribe.finish
   finish(): Promise<void> {
     this.log('finished...')
     return
   }
 
+  @subscribe.ticker
   async onTicker(tk: I.TickerType) {
     console.log('---------------------------------------')
     console.log(`count: ${++this.count}`)
     console.log(tk)
   }
-
-  onTrade = null
-  onOrderbook = null
 }
 
 

@@ -109,8 +109,19 @@ export function isoDateTime(date: Date): string {
 export class OHLCMaker {
   private vector: I.OHLCType[] = []
   private preTime: number = -1
+  private _limit: number
 
-  constructor(public readonly limit: number) {}
+  constructor(limit: number) {
+    this._limit = limit
+  }
+
+  get limit(): number {
+    return this._limit
+  }
+
+  set limit(l: number) {
+    this._limit = l
+  }
 
   push(tr: I.TradeType) {
     if(this.preTime === -1) {

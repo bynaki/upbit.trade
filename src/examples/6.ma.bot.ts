@@ -6,7 +6,7 @@ import {
   BaseBot,
   UPbitSocket,
   types as I,
-  addCandleListener,
+  subscribe,
 } from '../index'
 
 
@@ -27,7 +27,7 @@ class TestMABot extends BaseBot {
     super(code)
   }
 
-  @addCandleListener(1, 11)
+  @subscribe.candle(1, 11)
   aMinute(ohlcs: I.OHLCType[]) {
     if(this.time === -1) {
       this.time = ohlcs[0].timestamp
@@ -40,12 +40,6 @@ class TestMABot extends BaseBot {
       console.log('ma:', ma(ohlcs.splice(1)))
     }
   }
-
-  onTrade = null
-  onOrderbook = null
-  onTicker = null
-  start = null
-  finish = null
 }
 
 

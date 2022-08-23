@@ -6,7 +6,11 @@ import {
   BaseBot,
   UPbitSocket,
   types as I,
+  subscribe,
 } from '../index'
+import {
+  logger
+} from 'fourdollar'
 
 
 
@@ -18,17 +22,25 @@ class TestOrderbookBot extends BaseBot {
     super(code)
   }
 
+  @logger()
+  log(msg: string) {
+    return `${new Date().toLocaleString()} > ${msg}`
+  }
+
+  @subscribe.start
   start(socket: UPbitSocket): Promise<void> {
-    this.log('stated...')
+    this.log('started...')
     this.socket = socket
     return
   }
 
+  @subscribe.finish
   finish(): Promise<void> {
     this.log('finished...')
     return
   }
 
+  @subscribe.orderbook
   async onOrderbook(ord: I.OrderbookType) {
     console.log('---------------------------------------')
     console.log(`count: ${++this.count}`)
@@ -37,9 +49,6 @@ class TestOrderbookBot extends BaseBot {
       await this.socket.close()
     }
   }
-
-  onTicker = null
-  onTrade = null
 }
 
 
