@@ -1,6 +1,4 @@
-import test, {
-  ExecutionContext,
-} from 'ava'
+import test from 'ava'
 import {
   BaseBot,
   types as I,
@@ -18,12 +16,19 @@ import {
   removeSync,
 } from 'fs-extra'
 import {
-  format
+  format,
 } from 'fecha'
 import {
-  logger, MemoryWriter,
+  logger,
+  MemoryWriter,
 } from 'fourdollar'
+import {
+  floor,
+} from 'lodash'
 
+
+
+const writer = new MemoryWriter()
 
 
 
@@ -38,8 +43,6 @@ class TestErrorBot extends BaseBot {
   async onOrderbook(ord: I.OrderbookType): Promise<void> {}
 }
 
-
-const writer = new MemoryWriter()
 
 
 class TestTradeBot extends BaseBot {
@@ -76,147 +79,8 @@ class TestTradeBot extends BaseBot {
 
 
 
-// class TestOrderBot extends BaseBot {
-//   private order: OrderMarket
-//   private status: I.OrderType
-
-//   constructor(code: string, private readonly t: ExecutionContext) {
-//     super(code)
-//     t.plan(28)
-//   }
-
-//   async start() {
-//     this.order = this.newOrderMarket()
-//     const error = this.t.throws(() => this.newOrder())
-//     this.t.is(error!.message, "'UPbitTradeMock' 모드에서는 'newOrder()'를 지원하지 않는다.")
-//   }
-
-//   async finish() {
-//     // console.log(this.order.history)
-//   }
-
-//   async onTrade(tr: I.TradeType) {
-//     if(this.status?.side === 'ask' && this.status?.state === 'done') {
-//       return
-//     }
-//     if(!await this.order.updateStatus()) {
-//       this.status = await this.order.bid(10000)
-//       const status = this.status
-//       // console.log(status)
-//       this.t.is(status.side, 'bid')
-//       this.t.is(status.ord_type, 'price')
-//       this.t.is(status.price, 10000)
-//       this.t.is(status.state, 'wait')
-//       this.t.is(status.market, 'KRW-BTC')
-//       this.t.is(status.executed_volume, 0)
-//       this.t.is(status.trades_count, 0)
-//       return
-//     }
-//     const updated = await this.order.updateStatus()
-//     if(updated.side === 'bid' && updated.state === 'cancel') {
-//       // console.log(updated)
-//       this.t.is(updated.uuid, this.status!.uuid)
-//       this.t.is(updated.state, 'cancel')
-//       this.t.true(updated.executed_volume !== 0)
-//       this.t.is(updated.trades_count, 1)
-//       this.t.is(updated.trades.length, 1)
-//       this.t.is(updated.trades[0].funds, 10000)
-//       this.status = await this.order.ask()
-//       const status = this.status
-//       // console.log(status)
-//       this.t.is(status.side, 'ask')
-//       this.t.is(status.ord_type, 'market')
-//       this.t.is(status.price, null!)
-//       this.t.is(status.state, 'wait')
-//       this.t.true(status.volume !== null)
-//       this.t.is(status.market, 'KRW-BTC')
-//       this.t.is(status.executed_volume, 0)
-//       this.t.is(status.trades_count, 0)
-//       return
-//     }
-//     if(updated.side === 'ask' && updated.state === 'done') {
-//       // console.log(updated)
-//       this.t.is(updated.uuid, this.status!.uuid)
-//       this.t.is(updated.state, 'done')
-//       this.t.true(updated.executed_volume !== 0)
-//       this.t.is(updated.trades_count, 1)
-//       this.t.is(updated.trades.length, 1)
-//       this.status = updated
-//       return
-//     }
-//   }
-
-//   onOrderbook = null!
-//   onTicker = null!
-// }
-
-
-
 class TestTradeCandleBot extends BaseBot {
-  t: ExecutionContext
-  ohlcs: I.OHLCType[] = []
   done = false
-
-  constructor(code: string) {
-    super(code)
-  }
-
-  setTestObject(t: ExecutionContext) {
-    this.t = t
-    t.plan(4)
-  }
-  
-  @subscribe.candle(1, 10)
-  async onCandle1m(ohlcs: I.OHLCType[]) {
-    if(ohlcs.length === 3 && this.done === false) {
-      const rev = ohlcs.reverse()
-      const api = new UPbitSequence(getConfig().upbit_keys)
-      const cc = (await api.allCandlesMinutes(1, {
-        market: 'KRW-BTC',
-        from: format(new Date(rev[0].timestamp), 'isoDateTime'),
-        to: format(new Date(rev[2].timestamp), 'isoDateTime'),
-      })).reverse()
-      rev[0].volume = Math.floor(rev[0].volume * 10000) / 10000
-      rev[1].volume = Math.floor(rev[1].volume * 10000) / 10000
-      this.t.deepEqual(rev[0], {
-        open: cc[0].opening_price,
-        high: cc[0].high_price,
-        low: cc[0].low_price,
-        close: cc[0].trade_price,
-        volume: Math.floor(cc[0].candle_acc_trade_volume * 10000) / 10000,
-        timestamp: new Date(cc[0].candle_date_time_utc + '+00:00').getTime(),
-      })
-      this.t.deepEqual(rev[1], {
-        open: cc[1].opening_price,
-        high: cc[1].high_price,
-        low: cc[1].low_price,
-        close: cc[1].trade_price,
-        volume: Math.floor(cc[1].candle_acc_trade_volume * 10000) / 10000,
-        timestamp: new Date(cc[1].candle_date_time_utc + '+00:00').getTime(),
-      })
-      this.done = true
-    }
-  }
-
-  @subscribe.start
-  async start(socket: UPbitSocket): Promise<void> {
-    this.t.pass()
-    return
-  }
-
-  @subscribe.finish
-  async finish(): Promise<void> {
-    this.t.pass()
-    return
-  }
-}
-
-
-
-
-class TestCandleBot extends BaseBot {
-  // t: ExecutionContext
-  ohlcs: I.OHLCType[] = []
 
   constructor(code: string) {
     super(code)
@@ -227,36 +91,43 @@ class TestCandleBot extends BaseBot {
     return msg
   }
 
-  // setTestObject(t: ExecutionContext) {
-  //   this.t = t
-  //   t.plan(14)
-  // }
-  
-  // @subscribe.candle(10, 10)
-  // async onCandle10m(ohlcs: I.OHLCType[]) {
-  //   const from = '2021-09-13T00:00:00+00:00'
-  //   const to = '2021-09-13T01:40:00+00:00'
-  //   if(ohlcs.length === 10) {
-  //     const api = new UPbitSequence(getConfig().upbit_keys)
-  //     const cc = (await api.allCandlesMinutes(10, {
-  //       market: this.code,
-  //       from,
-  //       to,
-  //     }))
-  //     ohlcs.forEach((o, i) => {
-  //       this.t.deepEqual(o, {
-  //         open: cc[i].opening_price,
-  //         high: cc[i].high_price,
-  //         low: cc[i].low_price,
-  //         close: cc[i].trade_price,
-  //         volume: cc[i].candle_acc_trade_volume,
-  //         timestamp: new Date(cc[i].candle_date_time_utc + '+00:00').getTime(),
-  //       })
-  //     })
-  //     this.t.is(ohlcs[ohlcs.length - 1].timestamp, new Date(from).getTime())
-  //     this.t.is(ohlcs[0].timestamp, new Date(to).getTime() - (1000 * 60 * 10))
-  //   }
-  // }
+  @subscribe.candle(1, 10)
+  async onCandle1m(ohlcs: I.OHLCType[]) {
+    if(ohlcs.length === 3 && this.done === false) {
+      const rev = ohlcs.reverse()
+      this.log(rev[0])
+      this.log(rev[1])
+      this.log(rev[2])
+      this.done = true
+    }
+  }
+
+  @subscribe.start
+  async start(socket: UPbitSocket): Promise<void> {
+    this.log('started')
+    return
+  }
+
+  @subscribe.finish
+  async finish(): Promise<void> {
+    this.log('finished')
+    return
+  }
+}
+
+
+
+class TestCandleBot extends BaseBot {
+  ohlcs: I.OHLCType[] = []
+
+  constructor(code: string) {
+    super(code)
+  }
+
+  @logger(writer)
+  log(msg: any) {
+    return msg
+  }
 
   @subscribe.candle(10, 10)
   async onCandle10m(ohlcs: I.OHLCType[]) {
@@ -385,24 +256,44 @@ test.serial('UPbitTradeMock', async t => {
   }
 })
 
-// test.serial('OrderMarketMock', async t => {
-//   const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'order_market', {
-//     daysAgo: 0,
-//     to: '00:10:10',
-//   })
-//   mock.addBot(new TestOrderBot('KRW-BTC', t))
-//   await mock.open()
-// })
-
-test.serial('TestTradeCandleBot', async t => {
+test.serial('trade candle', async t => {
+  writer.clear()
   const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'trade_candle', {
     daysAgo: 0,
     to: '00:03:00',
   })
   const bot = new TestTradeCandleBot('KRW-BTC')
-  bot.setTestObject(t)
   mock.addBot(bot)
   await mock.open()
+  const m = writer.memory
+  t.is(m[0], 'started')
+  t.is(m[4], 'finished')
+  const first: I.OHLCType = m[1]
+  const second: I.OHLCType = m[2]
+  const api = new UPbitSequence(getConfig().upbit_keys)
+  const cc = (await api.allCandlesMinutes(1, {
+    market: 'KRW-BTC',
+    from: format(new Date(first.timestamp), 'isoDateTime'),
+    to: format(new Date(m[3].timestamp), 'isoDateTime'),
+  })).reverse()
+  first.volume = floor(first.volume, 4)
+  second.volume = floor(second.volume, 4)
+  t.deepEqual(first, {
+    open: cc[0].opening_price,
+    high: cc[0].high_price,
+    low: cc[0].low_price,
+    close: cc[0].trade_price,
+    volume: floor(cc[0].candle_acc_trade_volume, 4),
+    timestamp: new Date(cc[0].candle_date_time_utc + '+00:00').getTime(),
+  })
+  t.deepEqual(second, {
+    open: cc[1].opening_price,
+    high: cc[1].high_price,
+    low: cc[1].low_price,
+    close: cc[1].trade_price,
+    volume: floor(cc[1].candle_acc_trade_volume, 4),
+    timestamp: new Date(cc[1].candle_date_time_utc + '+00:00').getTime(),
+  })
 })
 
 test.serial('UPbitCandleMock', async t => {

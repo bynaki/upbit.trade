@@ -1,8 +1,5 @@
 import test from 'ava'
 import {
-  Order,
-  OrderMarket,
-  OrderHistory,
   api,
   SimpleOrder,
   types as I,
@@ -21,316 +18,316 @@ import Observable from 'zen-observable'
  * 지정가 매수매도
  * -- 실제로 거래됨 주의 --
  */
-if(false) {
-  const order = new Order('KRW-BTC')
+// if(false) {
+//   const order = new Order('KRW-BTC')
 
-  test.serial('order > #bid(): low price', async t => {
-    const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
-    const res = await order.bid(trade.trade_price * 0.9, 1000)
-    console.log('order > #bid(): low price')
-    console.log(res)
-    t.is(res.side, 'bid')
-    t.is(res.state, 'wait')
-  })
+//   test.serial('order > #bid(): low price', async t => {
+//     const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
+//     const res = await order.bid(trade.trade_price * 0.9, 1000)
+//     console.log('order > #bid(): low price')
+//     console.log(res)
+//     t.is(res.side, 'bid')
+//     t.is(res.state, 'wait')
+//   })
 
-  test.serial('order > #cancel(): cancel bid', async t => {
-    const status = order.status
-    const res = await order.cancel()
-    console.log('order > #cancel(): cancel bid')
-    console.log(res)
-    t.is(res.uuid, status.uuid)
-    t.is(res.side, 'bid')
-    t.is(res.state, 'wait')
-  })
+//   test.serial('order > #cancel(): cancel bid', async t => {
+//     const status = order.status
+//     const res = await order.cancel()
+//     console.log('order > #cancel(): cancel bid')
+//     console.log(res)
+//     t.is(res.uuid, status.uuid)
+//     t.is(res.side, 'bid')
+//     t.is(res.state, 'wait')
+//   })
 
-  test.serial('order > wait cancel bid', async t => {
-    t.timeout(6000)
-    const status = await order.wait()
-    console.log('order > wait cancel bid')
-    console.log(status)
-    t.is(status.side, 'bid')
-    t.is(status.state, 'cancel')
-  })
+//   test.serial('order > wait cancel bid', async t => {
+//     t.timeout(6000)
+//     const status = await order.wait()
+//     console.log('order > wait cancel bid')
+//     console.log(status)
+//     t.is(status.side, 'bid')
+//     t.is(status.state, 'cancel')
+//   })
 
-  test.serial('order > #bid(): low price again', async t => {
-    const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
-    const res = await order.bid(trade.trade_price * 0.9, 5000)
-    t.is(res.side, 'bid')
-    t.is(res.state, 'wait')
-  })
+//   test.serial('order > #bid(): low price again', async t => {
+//     const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
+//     const res = await order.bid(trade.trade_price * 0.9, 5000)
+//     t.is(res.side, 'bid')
+//     t.is(res.state, 'wait')
+//   })
 
-  test.serial('order > #cancelWaiting() bid', async t => {
-    const status = await order.cancelWaiting()
-    t.is(status.side, 'bid')
-    t.is(status.state, 'cancel')
-  })
+//   test.serial('order > #cancelWaiting() bid', async t => {
+//     const status = await order.cancelWaiting()
+//     t.is(status.side, 'bid')
+//     t.is(status.state, 'cancel')
+//   })
 
-  test.serial('order > #bid()', async t => {
-    const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
-    const res = await order.bid(trade.trade_price, 5000)
-    console.log('order > #bid()')
-    console.log(res)
-    t.pass()
-  })
+//   test.serial('order > #bid()', async t => {
+//     const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
+//     const res = await order.bid(trade.trade_price, 5000)
+//     console.log('order > #bid()')
+//     console.log(res)
+//     t.pass()
+//   })
 
-  test.serial('order > wait done bid', async t => {
-    t.timeout(120 * 1000)
-    const status  = await order.wait({ms: 1000, timeout: 20})
-    console.log('order > wait done bid')
-    console.log(status)
-    t.is(status.side, 'bid')
-    t.is(status.state, 'done')
-  })
+//   test.serial('order > wait done bid', async t => {
+//     t.timeout(120 * 1000)
+//     const status  = await order.wait({ms: 1000, timeout: 20})
+//     console.log('order > wait done bid')
+//     console.log(status)
+//     t.is(status.side, 'bid')
+//     t.is(status.state, 'done')
+//   })
 
-  test.serial('order > can not cancel bid when done', async t => {
-    const res = await order.cancel()
-    t.true(res === null)
-    console.log(order.error)
-  })
+//   test.serial('order > can not cancel bid when done', async t => {
+//     const res = await order.cancel()
+//     t.true(res === null)
+//     console.log(order.error)
+//   })
 
-  test.serial('order > #ask(): high price', async t => {
-    const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
-    const res = await order.ask(trade.trade_price * 1.1)
-    console.log('order > #ask(): high price')
-    console.log(res)
-    t.is(res.side, 'ask')
-    t.is(res.state, 'wait')
-  })
+//   test.serial('order > #ask(): high price', async t => {
+//     const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
+//     const res = await order.ask(trade.trade_price * 1.1)
+//     console.log('order > #ask(): high price')
+//     console.log(res)
+//     t.is(res.side, 'ask')
+//     t.is(res.state, 'wait')
+//   })
 
-  test.serial('order > #cancel(): cancel ask', async t => {
-    const status = order.status
-    const res = await order.cancel()
-    console.log('order > #cancel(): cancel ask')
-    console.log(res)
-    t.is(res.uuid, status.uuid)
-    t.is(res.side, 'ask')
-    t.is(res.state, 'wait')
-  })
+//   test.serial('order > #cancel(): cancel ask', async t => {
+//     const status = order.status
+//     const res = await order.cancel()
+//     console.log('order > #cancel(): cancel ask')
+//     console.log(res)
+//     t.is(res.uuid, status.uuid)
+//     t.is(res.side, 'ask')
+//     t.is(res.state, 'wait')
+//   })
 
-  test.serial('order > wait cancel ask', async t => {
-    t.timeout(6000)
-    const status = await order.wait()
-    console.log('order > wait cancel ask')
-    console.log(status)
-    t.is(status.side, 'ask')
-    t.is(status.state, 'cancel')
-  })
+//   test.serial('order > wait cancel ask', async t => {
+//     t.timeout(6000)
+//     const status = await order.wait()
+//     console.log('order > wait cancel ask')
+//     console.log(status)
+//     t.is(status.side, 'ask')
+//     t.is(status.state, 'cancel')
+//   })
 
-  test.serial('order > #ask(): high price again', async t => {
-    const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
-    const res = await order.ask(trade.trade_price * 1.1)
-    console.log('order > #ask(): high price again')
-    console.log(res)
-    t.is(res.side, 'ask')
-    t.is(res.state, 'wait')
-  })
+//   test.serial('order > #ask(): high price again', async t => {
+//     const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
+//     const res = await order.ask(trade.trade_price * 1.1)
+//     console.log('order > #ask(): high price again')
+//     console.log(res)
+//     t.is(res.side, 'ask')
+//     t.is(res.state, 'wait')
+//   })
 
-  test.serial('order > #cancelWaiting() ask', async t => {
-    const status = await order.cancelWaiting()
-    t.is(status.side, 'ask')
-    t.is(status.state, 'cancel')
-  })
+//   test.serial('order > #cancelWaiting() ask', async t => {
+//     const status = await order.cancelWaiting()
+//     t.is(status.side, 'ask')
+//     t.is(status.state, 'cancel')
+//   })
 
-  test.serial('order > #ask()', async t => {
-    const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
-    const res = await order.ask(trade.trade_price)
-    console.log('order > #ask()')
-    console.log(res)
-    t.is(res.side, 'ask')
-    t.is(res.state, 'wait')
-  })
+//   test.serial('order > #ask()', async t => {
+//     const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
+//     const res = await order.ask(trade.trade_price)
+//     console.log('order > #ask()')
+//     console.log(res)
+//     t.is(res.side, 'ask')
+//     t.is(res.state, 'wait')
+//   })
 
-  test.serial('order > wait done ask', async t => {
-    t.timeout(120 * 1000)
-    const status  = await order.wait({ms: 1000, timeout: 20})
-    console.log('order > wait done ask')
-    console.log(status)
-    t.is(status.side, 'ask')
-    t.is(status.state, 'done')
-  })
+//   test.serial('order > wait done ask', async t => {
+//     t.timeout(120 * 1000)
+//     const status  = await order.wait({ms: 1000, timeout: 20})
+//     console.log('order > wait done ask')
+//     console.log(status)
+//     t.is(status.side, 'ask')
+//     t.is(status.state, 'done')
+//   })
 
-  test.serial('order > can not cancel ask when done', async t => {
-    const res = await order.cancel()
-    t.true(res === null)
-    console.log(order.error)
-  })
+//   test.serial('order > can not cancel ask when done', async t => {
+//     const res = await order.cancel()
+//     t.true(res === null)
+//     console.log(order.error)
+//   })
 
-  test.serial('order > history', async t => {
-    const h = order.history
-    console.log(h)
-    const bid = h.bid
-    t.is(bid.length, 6)
-    t.is(bid[0].side, 'bid')
-    t.is(bid[0].state, 'wait')
-    t.is(bid[1].side, 'bid')
-    t.is(bid[1].state, 'cancel')
-    t.is(bid[0].uuid, bid[1].uuid)
-    t.is(bid[2].side, 'bid')
-    t.is(bid[2].state, 'wait')
-    t.is(bid[3].side, 'bid')
-    t.is(bid[3].state, 'cancel')
-    t.is(bid[2].uuid, bid[3].uuid)
-    t.is(bid[4].side, 'bid')
-    t.is(bid[4].state, 'wait')
-    t.is(bid[5].side, 'bid')
-    t.is(bid[5].state, 'done')
-    t.is(bid[4].uuid, bid[5].uuid)
-    const ask = h.ask
-    t.is(ask.length, 6)
-    t.is(ask[0].side, 'ask')
-    t.is(ask[0].state, 'wait')
-    t.is(ask[1].side, 'ask')
-    t.is(ask[1].state, 'cancel')
-    t.is(ask[0].uuid, ask[1].uuid)
-    t.is(ask[2].side, 'ask')
-    t.is(ask[2].state, 'wait')
-    t.is(ask[3].side, 'ask')
-    t.is(ask[3].state, 'cancel')
-    t.is(ask[2].uuid, ask[3].uuid)
-    t.is(ask[4].side, 'ask')
-    t.is(ask[4].state, 'wait')
-    t.is(ask[5].side, 'ask')
-    t.is(ask[5].state, 'done')
-    t.is(ask[4].uuid, ask[5].uuid)
-    t.is(h.errorBid.length, 1)
-    t.is(h.errorAsk.length, 1)
-    console.log(h.errorBid[0])
-    console.log(h.errorAsk[0])
-  })
+//   test.serial('order > history', async t => {
+//     const h = order.history
+//     console.log(h)
+//     const bid = h.bid
+//     t.is(bid.length, 6)
+//     t.is(bid[0].side, 'bid')
+//     t.is(bid[0].state, 'wait')
+//     t.is(bid[1].side, 'bid')
+//     t.is(bid[1].state, 'cancel')
+//     t.is(bid[0].uuid, bid[1].uuid)
+//     t.is(bid[2].side, 'bid')
+//     t.is(bid[2].state, 'wait')
+//     t.is(bid[3].side, 'bid')
+//     t.is(bid[3].state, 'cancel')
+//     t.is(bid[2].uuid, bid[3].uuid)
+//     t.is(bid[4].side, 'bid')
+//     t.is(bid[4].state, 'wait')
+//     t.is(bid[5].side, 'bid')
+//     t.is(bid[5].state, 'done')
+//     t.is(bid[4].uuid, bid[5].uuid)
+//     const ask = h.ask
+//     t.is(ask.length, 6)
+//     t.is(ask[0].side, 'ask')
+//     t.is(ask[0].state, 'wait')
+//     t.is(ask[1].side, 'ask')
+//     t.is(ask[1].state, 'cancel')
+//     t.is(ask[0].uuid, ask[1].uuid)
+//     t.is(ask[2].side, 'ask')
+//     t.is(ask[2].state, 'wait')
+//     t.is(ask[3].side, 'ask')
+//     t.is(ask[3].state, 'cancel')
+//     t.is(ask[2].uuid, ask[3].uuid)
+//     t.is(ask[4].side, 'ask')
+//     t.is(ask[4].state, 'wait')
+//     t.is(ask[5].side, 'ask')
+//     t.is(ask[5].state, 'done')
+//     t.is(ask[4].uuid, ask[5].uuid)
+//     t.is(h.errorBid.length, 1)
+//     t.is(h.errorAsk.length, 1)
+//     console.log(h.errorBid[0])
+//     console.log(h.errorAsk[0])
+//   })
 
-  test.serial('order > history file', async t => {
-    const history = new OrderHistory<{name: string}>('./history/test.txt')
-    const h = await history.append(order.history, {name: 'test'})
-    const hh = (await history.read()).pop()
-    if(hh !== undefined) {
-      console.log(hh)
-      t.deepEqual(h, hh)
-      const bid = hh.bid
-      t.is(bid.length, 6)
-      t.is(bid[0].side, 'bid')
-      t.is(bid[0].state, 'wait')
-      t.is(bid[1].side, 'bid')
-      t.is(bid[1].state, 'cancel')
-      t.is(bid[0].uuid, bid[1].uuid)
-      t.is(bid[2].side, 'bid')
-      t.is(bid[2].state, 'wait')
-      t.is(bid[3].side, 'bid')
-      t.is(bid[3].state, 'cancel')
-      t.is(bid[2].uuid, bid[3].uuid)
-      t.is(bid[4].side, 'bid')
-      t.is(bid[4].state, 'wait')
-      t.is(bid[5].side, 'bid')
-      t.is(bid[5].state, 'done')
-      t.is(bid[4].uuid, bid[5].uuid)
-      const ask = hh.ask
-      t.is(ask.length, 6)
-      t.is(ask[0].side, 'ask')
-      t.is(ask[0].state, 'wait')
-      t.is(ask[1].side, 'ask')
-      t.is(ask[1].state, 'cancel')
-      t.is(ask[0].uuid, ask[1].uuid)
-      t.is(ask[2].side, 'ask')
-      t.is(ask[2].state, 'wait')
-      t.is(ask[3].side, 'ask')
-      t.is(ask[3].state, 'cancel')
-      t.is(ask[2].uuid, ask[3].uuid)
-      t.is(ask[4].side, 'ask')
-      t.is(ask[4].state, 'wait')
-      t.is(ask[5].side, 'ask')
-      t.is(ask[5].state, 'done')
-      t.is(ask[4].uuid, ask[5].uuid)
-      t.is(hh.errorBid.length, 1)
-      t.is(hh.errorAsk.length, 1)
-      console.log(hh.errorBid[0])
-      console.log(hh.errorAsk[0])
-      t.is(hh.brief.name, 'test')
-    } else {
-      t.fail()
-    }
-  })
-}
+//   test.serial('order > history file', async t => {
+//     const history = new OrderHistory<{name: string}>('./history/test.txt')
+//     const h = await history.append(order.history, {name: 'test'})
+//     const hh = (await history.read()).pop()
+//     if(hh !== undefined) {
+//       console.log(hh)
+//       t.deepEqual(h, hh)
+//       const bid = hh.bid
+//       t.is(bid.length, 6)
+//       t.is(bid[0].side, 'bid')
+//       t.is(bid[0].state, 'wait')
+//       t.is(bid[1].side, 'bid')
+//       t.is(bid[1].state, 'cancel')
+//       t.is(bid[0].uuid, bid[1].uuid)
+//       t.is(bid[2].side, 'bid')
+//       t.is(bid[2].state, 'wait')
+//       t.is(bid[3].side, 'bid')
+//       t.is(bid[3].state, 'cancel')
+//       t.is(bid[2].uuid, bid[3].uuid)
+//       t.is(bid[4].side, 'bid')
+//       t.is(bid[4].state, 'wait')
+//       t.is(bid[5].side, 'bid')
+//       t.is(bid[5].state, 'done')
+//       t.is(bid[4].uuid, bid[5].uuid)
+//       const ask = hh.ask
+//       t.is(ask.length, 6)
+//       t.is(ask[0].side, 'ask')
+//       t.is(ask[0].state, 'wait')
+//       t.is(ask[1].side, 'ask')
+//       t.is(ask[1].state, 'cancel')
+//       t.is(ask[0].uuid, ask[1].uuid)
+//       t.is(ask[2].side, 'ask')
+//       t.is(ask[2].state, 'wait')
+//       t.is(ask[3].side, 'ask')
+//       t.is(ask[3].state, 'cancel')
+//       t.is(ask[2].uuid, ask[3].uuid)
+//       t.is(ask[4].side, 'ask')
+//       t.is(ask[4].state, 'wait')
+//       t.is(ask[5].side, 'ask')
+//       t.is(ask[5].state, 'done')
+//       t.is(ask[4].uuid, ask[5].uuid)
+//       t.is(hh.errorBid.length, 1)
+//       t.is(hh.errorAsk.length, 1)
+//       console.log(hh.errorBid[0])
+//       console.log(hh.errorAsk[0])
+//       t.is(hh.brief.name, 'test')
+//     } else {
+//       t.fail()
+//     }
+//   })
+// }
 
 
 /**
  * 사장가 매수매도
  * -- 실제로 거래됨 주의 --
  */
-if(false) {
-  const order = new OrderMarket('KRW-BTC')
-  let statusBid: I.OrderDetailType
-  let statusAsk: I.OrderDetailType
+// if(false) {
+//   const order = new OrderMarket('KRW-BTC')
+//   let statusBid: I.OrderDetailType
+//   let statusAsk: I.OrderDetailType
   
-  test.serial('order market > #bid()', async t => {
-    const res = await order.bid(10000)
-    order.wait(null, status => statusBid = status)
-    console.log('order market > #bid()')
-    console.log(res)
-    t.is(res.state, 'wait')
-  })
+//   test.serial('order market > #bid()', async t => {
+//     const res = await order.bid(10000)
+//     order.wait(null, status => statusBid = status)
+//     console.log('order market > #bid()')
+//     console.log(res)
+//     t.is(res.state, 'wait')
+//   })
 
-  // 시장가 거래는 cancel 안됨 주의.
-  test.serial('order market > #cancel(): can not cancel bid', async t => {
-    const res = await order.cancel()
-    console.log('order market > #cancel(): can not cancel bid')
-    console.log(res)
-    t.is(res.state, 'wait')
-  })
+//   // 시장가 거래는 cancel 안됨 주의.
+//   test.serial('order market > #cancel(): can not cancel bid', async t => {
+//     const res = await order.cancel()
+//     console.log('order market > #cancel(): can not cancel bid')
+//     console.log(res)
+//     t.is(res.state, 'wait')
+//   })
 
-  // test.serial.cb('order market > wait done bid', t => {
-  //   t.timeout(60 * 1000)
-  //   const id = setInterval(async () => {
-  //     const status = await order.updateStatus()
-  //     if(status.state === 'cancel' && statusBid) {
-  //       console.log('order market > wait done bid')
-  //       console.log(status)
-  //       t.is(status.side, 'bid')
-  //       t.deepEqual(status, statusBid)
-  //       t.end()
-  //       clearInterval(id)
-  //     }
-  //   }, 3000)
-  // })
+//   // test.serial.cb('order market > wait done bid', t => {
+//   //   t.timeout(60 * 1000)
+//   //   const id = setInterval(async () => {
+//   //     const status = await order.updateStatus()
+//   //     if(status.state === 'cancel' && statusBid) {
+//   //       console.log('order market > wait done bid')
+//   //       console.log(status)
+//   //       t.is(status.side, 'bid')
+//   //       t.deepEqual(status, statusBid)
+//   //       t.end()
+//   //       clearInterval(id)
+//   //     }
+//   //   }, 3000)
+//   // })
 
-  test.serial('order market > #ask()', async t => {
-    const res = await order.ask()
-    order.wait(null, status => statusAsk = status)
-    console.log('order market > #ask()')
-    console.log(res)
-    t.is(res.state, 'wait')
-  })
+//   test.serial('order market > #ask()', async t => {
+//     const res = await order.ask()
+//     order.wait(null, status => statusAsk = status)
+//     console.log('order market > #ask()')
+//     console.log(res)
+//     t.is(res.state, 'wait')
+//   })
 
-  // 시장가 거래는 cancel 안됨 주의.
-  test.serial('order market > #cancel(): can not cancel ask', async t => {
-    const res = await order.cancelWaiting()
-    t.true(res === null)
-  })
+//   // 시장가 거래는 cancel 안됨 주의.
+//   test.serial('order market > #cancel(): can not cancel ask', async t => {
+//     const res = await order.cancelWaiting()
+//     t.true(res === null)
+//   })
 
-  // test.serial.cb('order market > wait done ask', t => {
-  //   t.timeout(60 * 1000)
-  //   const id = setInterval(async () => {
-  //     const status = await order.updateStatus()
-  //     if(status.state === 'done' && statusAsk) {
-  //       console.log('order market > wait done ask')
-  //       console.log(status)
-  //       t.is(status.side, 'ask')
-  //       t.deepEqual(status, statusAsk)
-  //       t.end()
-  //       clearInterval(id)
-  //     }
-  //   }, 3000)
-  // })
+//   // test.serial.cb('order market > wait done ask', t => {
+//   //   t.timeout(60 * 1000)
+//   //   const id = setInterval(async () => {
+//   //     const status = await order.updateStatus()
+//   //     if(status.state === 'done' && statusAsk) {
+//   //       console.log('order market > wait done ask')
+//   //       console.log(status)
+//   //       t.is(status.side, 'ask')
+//   //       t.deepEqual(status, statusAsk)
+//   //       t.end()
+//   //       clearInterval(id)
+//   //     }
+//   //   }, 3000)
+//   // })
 
-  test.serial('order market > history', async t => {
-    const history = new OrderHistory<{name: string}>('./history/test.txt')
-    const h = await history.append(order.history, {name: 'test'})
-    console.log(h)
-    const hh = await history.read()
-    console.log(hh[hh.length - 1])
-    console.log(hh[hh.length - 1].bid)
-    console.log(hh[hh.length - 1].ask)
-    t.deepEqual(h, hh[hh.length - 1])
-  })
-}
+//   test.serial('order market > history', async t => {
+//     const history = new OrderHistory<{name: string}>('./history/test.txt')
+//     const h = await history.append(order.history, {name: 'test'})
+//     console.log(h)
+//     const hh = await history.read()
+//     console.log(hh[hh.length - 1])
+//     console.log(hh[hh.length - 1].bid)
+//     console.log(hh[hh.length - 1].ask)
+//     t.deepEqual(h, hh[hh.length - 1])
+//   })
+// }
 
 
 /**

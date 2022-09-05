@@ -218,8 +218,8 @@ const f = (): boolean => {
   return true
 }
 
-export const safeApi = {
-  getMarket: (isDetails?: boolean): Promise<Iu.Response<Iu.MarketType[]>> => {
-    return api.getMarket(isDetails)
-  }
-}
+// export const safeApi = {
+//   getMarket: (isDetails?: boolean): Promise<Iu.Response<Iu.MarketType[]>> => {
+//     return api.getMarket(isDetails)
+//   }
+// }

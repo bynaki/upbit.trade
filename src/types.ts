@@ -191,3 +191,20 @@ export interface ErrorMessage extends Message<unknown> {
 
 export interface OrderType extends Iu.OrderType {}
 export interface OrderDetailType extends Iu.OrderDetailType {}
+export interface OrderChanceType extends Iu.OrderChanceType {}
+export interface OrderLimitParam extends Iu.OrderLimitParam {}
+export interface OrderPriceParam extends Iu.OrderPriceParam {}
+export interface OrderMarketParam extends Iu.OrderMarketParam {}
+
+
+export interface WrapAPI {
+  market: string
+  // setTrade(tr: I.TradeType): void
+  getPrice(bid_ask?: 'BID'|'ASK'): number
+  getTime(bid_ask?: 'BID'|'ASK'): number
+  getOrdersChance(): Promise<OrderChanceType>
+  getOrderDetail(uuid: string): Promise<OrderDetailType>
+  cancel(uuid: string): Promise<OrderType>
+  order(params: OrderLimitParam | OrderPriceParam | OrderMarketParam): Promise<OrderType>
+}
+

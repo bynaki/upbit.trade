@@ -7,12 +7,12 @@ import {
   BaseUPbitSocket, UPbitSocket,
 } from './socket'
 import {
+  SimpleOrder,
+} from './order'
+import {
   OHLCMaker,
 } from './utils'
-import {
-  AbstractOrder,
-  AbstractOrderMarket,
-} from './order'
+
 
 
 type Subscribers<T> = {
@@ -54,15 +54,15 @@ export const subscribe = {
 
 
 export class BaseBot {
-  private _queue: {
-    trade: I.ResType[]
-    orderbook: I.ResType[]
-    ticker: I.ResType[]
-  } = {
-    trade: [],
-    orderbook: [],
-    ticker: [],
-  }
+  // private _queue: {
+  //   trade: I.ResType[]
+  //   orderbook: I.ResType[]
+  //   ticker: I.ResType[]
+  // } = {
+  //   trade: [],
+  //   orderbook: [],
+  //   ticker: [],
+  // }
   private _latests: {
     trade: I.ResType
     orderbook: I.ResType
@@ -113,6 +113,17 @@ export class BaseBot {
 
   get name() {
     return `${this.constructor.name}:${this.code}`
+  }
+
+  setSocket(socket: BaseUPbitSocket) {
+    this._socket = socket
+  }
+
+  protected newSimpleOrder(name: string, asset: number): SimpleOrder {
+    if(!this._socket) {
+      throw new Error('Socket을 먼저 설정해야한다.')
+    }
+    return this._socket.newSimpleOrder(name, this.code, asset)
   }
 
   genealogy(constructor?: any, gs: string[] = []): string[] {
@@ -252,33 +263,13 @@ export class BaseBot {
     }
   }
 
-  // async trigger<T extends I.ResType>(data: T) {
-  //   this._latests[data.type] = data
-  //   if([I.EventType.Trade, I.EventType.Orderbook, I.EventType.Ticker]
-  //     .some(type => this.usingEvent(type as I.EventType) && this._latests[type] === null)) {
-  //     return
-  //   }
-  //   if(this._queue[data.type].length === 0) {
-  //     this._queue[data.type].push(data)
-  //     while(this._queue[data.type].length !== 0) {
-  //       const res = this._queue[data.type][0]
-  //       await Promise.all(this._subscribers[res.type].subscribers.map(sub => sub.next(res)))
-  //       if(this._queue[data.type].length !== 0) {
-  //         this._queue[data.type].shift()
-  //       }
-  //     }
-  //   } else {
-  //     this._queue[data.type].push(data)
+  // private _release() {
+  //   this._queue = {
+  //     trade: [],
+  //     orderbook: [],
+  //     ticker: [],
   //   }
   // }
-
-  private _release() {
-    this._queue = {
-      trade: [],
-      orderbook: [],
-      ticker: [],
-    }
-  }
 
   async _start<S extends BaseUPbitSocket>(socket: S): Promise<void> {
     this._socket = socket
@@ -288,7 +279,7 @@ export class BaseBot {
   }
 
   async _finish(): Promise<void> {
-    this._release()
+    // this._release()
     if(this._subscribers[I.EventType.Finish]) {
       await Promise.all(this._subscribers[I.EventType.Finish].subscribers.map(sub => sub.next()))
     }
