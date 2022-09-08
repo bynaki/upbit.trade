@@ -11,6 +11,7 @@ import {
   floor,
   toNumber,
   remove,
+  uniq,
 } from 'lodash'
 import {
   format,
@@ -18,8 +19,6 @@ import {
 import {
   readyCandle,
 } from './database'
-import { OrderType } from './types'
-
 
 
 
@@ -124,28 +123,46 @@ export class UPbitCandleMock extends BaseUPbitSocket {
     return new CandleMockAPI(market)
   }
 
+  addBotB<B extends BaseBot>(...bots: B[]): void {
+    bots.forEach(bot => {
+      bot['triggerB'] = async function(min: 1|3|5|10|15|30|60|240, ohlc: I.OHLCType): Promise<void> {
+
+      }
+    })
+  }
+
   addBot<B extends BaseBot>(...bots: B[]): void {
     bots.forEach(bot => {
-      const ohlcs: {
+      const data: {
         [min: number]: {
+          id: string
           ohlcs: I.OHLCType[]
           limit: number
-        }
+        }[]
       } = {}
+      const pt = /(\d+):(\d+)/
+      Object.keys(bot.candleSubers).forEach(id => {
+        const res = pt.exec(id)
+        const min = Number.parseInt(res[1])
+        const limit = Number.parseInt(res[2])
+        if(!data[min]) {
+          data[min] = []
+        }
+        data[min].push({
+          id,
+          ohlcs: [],
+          limit,
+        })
+      })
       bot['triggerB'] = async function(min: 1|3|5|10|15|30|60|240, ohlc: I.OHLCType): Promise<void> {
-        if(!ohlcs[min]) {
-          ohlcs[min] = {
-            ohlcs: [],
-            // todo:
-            limit: 10,
+        const dd = data[min]
+        await Promise.all(dd.map(d => {
+          d.ohlcs.unshift(ohlc)
+          if(d.ohlcs.length > d.limit) {
+            d.ohlcs.pop()
           }
-        }
-        const data = ohlcs[min]
-        data.ohlcs.unshift(ohlc)
-        if(data.ohlcs.length > data.limit) {
-          data.ohlcs.pop()
-        }
-        await Promise.all(this._subscribers[min].subscribers.map(sub => sub.next(data.ohlcs)))
+          return this._candleSubers[d.id].subscribers.map(sub => sub.next(d.ohlcs))
+        }).flat())
         return
       }
     })
@@ -155,9 +172,14 @@ export class UPbitCandleMock extends BaseUPbitSocket {
   async open(): Promise<void> {
     const bots = this.getBots()
     const keys = ['1', '3', '5', '10', '15', '30', '60', '240']
-    const comins = bots.map(bot => {
-      return keys.filter(key => bot.subscribers[key]).map(min => `${bot.code}:${min}`)
-    }).flat()
+    // const comins = bots.map(bot => {
+    //   return keys.filter(key => bot.subscribers[key]).map(min => `${bot.code}:${min}`)
+    // }).flat()
+    const pt = /(\d+):(\d+)/
+    const comins = uniq(bots.map(bot => {
+      const ids = Object.keys(bot.candleSubers)
+      return ids.map(id => pt.exec(id)[1]).map(min => `${bot.code}:${min}`)
+    }).flat())
     const table = await readyCandle(this.args.filename, this.args.tableName, {
       comins,
       from: this.args.params.from,

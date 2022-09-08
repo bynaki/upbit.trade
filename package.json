@@ -56,7 +56,7 @@
   },
   "ava": {
     "files": [
-      "dist.test/test/**/order.mock.spec.js"
+      "dist.test/test/**/mock.spec.js"
     ]
   }
 }

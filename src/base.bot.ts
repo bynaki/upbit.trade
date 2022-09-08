@@ -44,7 +44,7 @@ export const subscribe = {
   trade: subs<(tr: I.TradeType) => any>(I.EventType.Trade),
   orderbook: subs<(ob: I.OrderbookType) => any>(I.EventType.Orderbook),
   ticker: subs<(tk: I.TickerType) => any>(I.EventType.Ticker),
-  candle(min: number, limit: number = 30) {
+  candle(min: 1|3|5|10|15|30|60|240, limit: number = 10) {
     return subs<(ohlcs: I.OHLCType[]) => any>(I.EventType.Candle, {min, limit})
   },
   start: subs<(socket: UPbitSocket) => any>(I.EventType.Start),
@@ -54,15 +54,6 @@ export const subscribe = {
 
 
 export class BaseBot {
-  // private _queue: {
-  //   trade: I.ResType[]
-  //   orderbook: I.ResType[]
-  //   ticker: I.ResType[]
-  // } = {
-  //   trade: [],
-  //   orderbook: [],
-  //   ticker: [],
-  // }
   private _latests: {
     trade: I.ResType
     orderbook: I.ResType
@@ -75,19 +66,27 @@ export class BaseBot {
   private _socket: BaseUPbitSocket
   private _ohlcMaker: OHLCMaker
   protected _subscribers: {
-    [min: number]: Subscribers<I.OHLCType[]>
+    // [min: number]: Subscribers<I.OHLCType[]>
     [I.EventType.Trade]?: Subscribers<I.TradeType>
     [I.EventType.Orderbook]?: Subscribers<I.OrderbookType>
     [I.EventType.Ticker]?: Subscribers<I.TickerType>
     [I.EventType.Start]?: Subscribers<BaseUPbitSocket>
     [I.EventType.Finish]?: Subscribers<void>
   } = {}
+  protected _candleSubers: {[id: string]: Subscribers<I.OHLCType[]>} = {}
   protected _preSubs: {[name: string]: {
     type: I.EventType
     opts?: any
   }} = {}
 
   constructor(public readonly code: string) {
+    this.subscribe(I.EventType.Trade, {
+      next: tr => {
+        if(this._ohlcMaker) {
+          this._ohlcMaker.push(tr)
+        }
+      }
+    })
     const names = this.genealogy()
     this._preSubs = names.filter(name => preSubscriptions[name])
       .map(name => preSubscriptions[name])
@@ -141,10 +140,6 @@ export class BaseBot {
     return gs
   }
 
-  get subscribers() {
-    return this._subscribers
-  }
-
   latest(type: I.ReqType.Trade): I.TradeType
   latest(type: I.ReqType.Orderbook): I.OrderbookType
   latest(type: I.ReqType.Ticker): I.TickerType
@@ -155,56 +150,86 @@ export class BaseBot {
     return Object.assign({}, this._latests[type])
   }
 
-  // newOrder(): AbstractOrder {
-  //   return this._socket.newOrder(this)
-  // }
-  // newOrderMarket(): AbstractOrderMarket {
-  //   return this._socket.newOrderMarket(this)
-  // }
+  get subscribers() {
+    return this._subscribers
+  }
 
-  // get hasCandleEvent() {
-  //   return this.getCandleCallbacks().length !== 0
-  // }
+  get candleSubers() {
+    return this._candleSubers
+  }
 
   private _obsCandle(min: 1|3|5|10|15|30|60|240, limit: number): Observable<I.OHLCType[]> {
     if(!this._ohlcMaker) {
       this._ohlcMaker = new OHLCMaker(limit * min)
-      const sub = this.observer(I.EventType.Trade).subscribe({
-        next: async (tr) => {
-          this._ohlcMaker.push(tr)
-          const list = [1, 3, 5, 10, 15, 30, 60, 240].map(min => {
-            if(this._subscribers[min]) {
-              if(this._subscribers[min].subscribers.length !== 0) {
-                const os = this._ohlcMaker.as(min)
-                if(os.length !== 0) {
-                  return Promise.all(this._subscribers[min].subscribers.map(sub => sub.next(os)))
-                }
-              }
-            }
-          })
-          await Promise.all(list)
-        }
-      })
-    } else if(this._ohlcMaker.limit < limit * min) {
+    }
+    if(this._ohlcMaker.limit < limit * min) {
       this._ohlcMaker.limit = limit * min
     }
-    if(!this._subscribers) {
-      this._subscribers = {}
-    }
-    if(!this._subscribers[min]) {
-      this._subscribers[min] = {
+    const id = `${min}:${limit}`
+    if(!this._candleSubers[id]) {
+      this._candleSubers[id] = {
         observable: new Observable<I.OHLCType[]>(sub => {
-          this._subscribers[min].subscribers.push(sub)
+          this._candleSubers[id].subscribers.push(sub)
           return () => {
-            this._subscribers[min].subscribers =
-              this._subscribers[min].subscribers.filter(s => !s.closed)
+            this._candleSubers[id].subscribers =
+              this._candleSubers[id].subscribers.filter(s => !s.closed)
           }
         }),
         subscribers: [],
       }
+      this.observer(I.EventType.Trade).subscribe({
+        next: async tr => {
+          if(this._candleSubers[id].subscribers.length !== 0) {
+            const os = this._ohlcMaker.as(min).slice(0, limit)
+            if(os.length !== 0) {
+              await Promise.all(this._candleSubers[id].subscribers.map(sub => sub.next(os)))
+            }
+          }
+        }
+      })
     }
-    return this._subscribers[min].observable
+    return this._candleSubers[id].observable
   }
+
+  // private _obsCandle(min: 1|3|5|10|15|30|60|240, limit: number): Observable<I.OHLCType[]> {
+  //   if(!this._ohlcMaker) {
+  //     this._ohlcMaker = new OHLCMaker(limit * min)
+  //     const sub = this.observer(I.EventType.Trade).subscribe({
+  //       next: async (tr) => {
+  //         this._ohlcMaker.push(tr)
+  //         const list = [1, 3, 5, 10, 15, 30, 60, 240].map(min => {
+  //           // if(this._subscribers[min]) {
+  //             if(this._subscribers[min]?.subscribers.length !== 0) {
+  //               const os = this._ohlcMaker.as(min)
+  //               if(os.length !== 0) {
+  //                 return Promise.all(this._subscribers[min].subscribers.map(sub => sub.next(os)))
+  //               }
+  //             }
+  //           // }
+  //         })
+  //         await Promise.all(list)
+  //       }
+  //     })
+  //   } else if(this._ohlcMaker.limit < limit * min) {
+  //     this._ohlcMaker.limit = limit * min
+  //   }
+  //   if(!this._subscribers) {
+  //     this._subscribers = {}
+  //   }
+  //   if(!this._subscribers[min]) {
+  //     this._subscribers[min] = {
+  //       observable: new Observable<I.OHLCType[]>(sub => {
+  //         this._subscribers[min].subscribers.push(sub)
+  //         return () => {
+  //           this._subscribers[min].subscribers =
+  //             this._subscribers[min].subscribers.filter(s => !s.closed)
+  //         }
+  //       }),
+  //       subscribers: [],
+  //     }
+  //   }
+  //   return this._subscribers[min].observable
+  // }
 
   private _obs(type: I.EventType): Observable<unknown> {
     if(!this._subscribers) {
@@ -263,14 +288,6 @@ export class BaseBot {
     }
   }
 
-  // private _release() {
-  //   this._queue = {
-  //     trade: [],
-  //     orderbook: [],
-  //     ticker: [],
-  //   }
-  // }
-
   async _start<S extends BaseUPbitSocket>(socket: S): Promise<void> {
     this._socket = socket
     if(this._subscribers[I.EventType.Start]) {
@@ -279,7 +296,6 @@ export class BaseBot {
   }
 
   async _finish(): Promise<void> {
-    // this._release()
     if(this._subscribers[I.EventType.Finish]) {
       await Promise.all(this._subscribers[I.EventType.Finish].subscribers.map(sub => sub.next()))
     }
@@ -297,195 +313,3 @@ export class BaseBot {
     }
   }
 }
-
-
-
-// export abstract class BaseBot extends Logger {
-//   private _queue: {
-//     trade: I.ResType[]
-//     orderbook: I.ResType[]
-//     ticker: I.ResType[]
-//   } = {
-//     trade: [],
-//     orderbook: [],
-//     ticker: [],
-//   }
-//   private _latests: {
-//     trade: I.ResType
-//     orderbook: I.ResType
-//     ticker: I.ResType
-//   } = {
-//     trade: null,
-//     orderbook: null,
-//     ticker: null,
-//   }
-//   private _socket: BaseUPbitSocket = null
-//   private _ohlcMaker: OHLCMaker = null
-//   private _candleCallbacks: {
-//     callback: string
-//     args: {
-//       minutes: number
-//       limit: number
-//     }
-//   }[] = null
-
-//   constructor(public readonly code: string) {
-//     super(code)
-//   }
-
-//   get name() {
-//     return `${this.constructor.name}:${this.code}`
-//   }
-
-//   latest(type: I.ReqType.Trade): I.TradeType
-//   latest(type: I.ReqType.Orderbook): I.OrderbookType
-//   latest(type: I.ReqType.Ticker): I.TickerType
-//   latest(type: I.ReqType): any {
-//     if(this._latests[type] === null) {
-//       return null
-//     }
-//     return Object.assign({}, this._latests[type])
-//   }
-
-//   newOrder(): AbstractOrder {
-//     return this._socket.newOrder(this)
-//   }
-//   newOrderMarket(): AbstractOrderMarket {
-//     return this._socket.newOrderMarket(this)
-//   }
-
-//   get hasCandleEvent() {
-//     return this.getCandleCallbacks().length !== 0
-//   }
-
-//   async trigger<T extends I.ResType>(data: T) {
-//     this._latests[data.type] = data
-//     if((this.onTrade || this.hasCandleEvent) && this._latests[I.ReqType.Trade] === null) {
-//       return
-//     }
-//     if(this.onOrderbook && this._latests[I.ReqType.Orderbook] === null) {
-//       return
-//     }
-//     if(this.onTicker && this._latests[I.ReqType.Ticker] === null) {
-//       return
-//     }
-//     if(this._queue[data.type].length === 0) {
-//       this._queue[data.type].push(data)
-//       while(this._queue[data.type].length !== 0) {
-//         const res = this._queue[data.type][0]
-//         if(data.type === I.ReqType.Trade && this.hasCandleEvent) {
-//           await Promise.all([this._trigger(res), this._triggerCandle(res as I.TradeType)])
-//         } else {
-//           await this._trigger(res)
-//         }
-//         this._queue[data.type].shift()
-//       }
-//     } else {
-//       this._queue[data.type].push(data)
-//     }
-//   }
-
-//   private async _trigger(data: I.ResType) {
-//     switch(data.type) {
-//       case I.ReqType.Trade:
-//         return this.onTrade && this.onTrade(data as I.TradeType)
-//       case I.ReqType.Orderbook:
-//         return this.onOrderbook(data as I.OrderbookType)
-//       case I.ReqType.Ticker:
-//         return this.onTicker(data as I.TickerType)
-//       default:
-//         throw new Error(`'${data.type}' is unknown type.`)
-//     }
-//   }
-
-//   private async _triggerCandle(tr: I.TradeType) {
-//     const callbacks = this.getCandleCallbacks()
-//     this._ohlcMaker.push(tr)
-//     for(const cb of callbacks) {
-//       const os = this._ohlcMaker.as(cb.args.minutes)
-//       if(os.length !== 0) {
-//         await this[cb.callback](os)
-//       }
-//     }
-//   }
-
-//   getCandleCallbacks() {
-//     if(this._candleCallbacks) {
-//       return this._candleCallbacks
-//     }
-//     this._candleCallbacks = []
-//     if(listeners[this.constructor.name] && listeners[this.constructor.name][I.EventType.Candle]) {
-//       this._candleCallbacks = listeners[this.constructor.name][I.EventType.Candle]
-//       let limit = this._candleCallbacks.reduce((max, l) => Math.max(l.args.minutes * l.args.limit, max), 0)
-//       if(limit !== 0) {
-//         this._ohlcMaker = new OHLCMaker(limit)
-//       }
-//     }
-//     return this._candleCallbacks
-//   }
-
-//   _start<S extends BaseUPbitSocket>(socket: S): Promise<void> {
-//     this._socket = socket
-//     if(this.start) {
-//       return this.start(socket)
-//     }
-//   }
-
-//   _finish(): Promise<void> {
-//     if(this.finish) {
-//       return this.finish()
-//     }
-//   }
-
-//   abstract start(socket: BaseUPbitSocket): Promise<void>
-//   abstract finish(): Promise<void>
-//   abstract onTrade(data: I.TradeType): Promise<void>
-//   abstract onOrderbook(data: I.OrderbookType): Promise<void>
-//   abstract onTicker(data: I.TickerType): Promise<void>
-// }
-
-
-
-// const listeners: {
-//   [key: string]: {
-//     [key: string]: {
-//       callback: string
-//       args: any
-//     }[]
-//   }
-// } = {}
-
-
-// function addEventListener(event: I.EventType.Candle, callback: (ohlcs: I.OHLCType[]) => Promise<void>, args: {
-//   minutes: number
-//   limit: number
-// // }): void
-// function addEventListener<B extends BaseBot, E extends I.EventType>(
-//   target: B , event: E , callback , args?) {
-//   if(!listeners[target.constructor.name]) {
-//     listeners[target.constructor.name] = {}
-//   }
-//   if(!listeners[target.constructor.name][event]) {
-//     listeners[target.constructor.name][event] = []
-//   }
-//   listeners[target.constructor.name][event].push({
-//     callback,
-//     args,
-//   })
-// }
-
-
-// type DecoCandleListenerType<B extends BaseBot> = {
-//   (minutes: 1|3|5|10|15|30|60|240, limit: number)
-//   : (target: B, property: string, descriptor: PropertyDescriptor) => PropertyDescriptor
-// }
-
-// export function addCandleListener<B extends BaseBot>(minutes: 1|3|5|10|15|30|60|240, limit: number) {
-//   return (target: B, property: string, descriptor: PropertyDescriptor) => {
-//     addEventListener(target, I.EventType.Candle, property, {
-//       minutes,
-//       limit,
-//     })
-//     return descriptor
-//   }
-// }

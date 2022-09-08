@@ -79,8 +79,22 @@ class TestTradeBot extends BaseBot {
 
 
 
-class TestTradeCandleBot extends BaseBot {
-  done = false
+class TradeCandleBot extends BaseBot {
+  mm1: {
+    name: string
+    ohlc: I.OHLCType
+    length: number
+  }
+  mm1l5: {
+    name: string
+    ohlc: I.OHLCType
+    length: number
+  }
+  mm3: {
+    name: string
+    ohlc: I.OHLCType
+    length: number
+  }
 
   constructor(code: string) {
     super(code)
@@ -91,14 +105,63 @@ class TestTradeCandleBot extends BaseBot {
     return msg
   }
 
-  @subscribe.candle(1, 10)
-  async onCandle1m(ohlcs: I.OHLCType[]) {
-    if(ohlcs.length === 3 && this.done === false) {
-      const rev = ohlcs.reverse()
-      this.log(rev[0])
-      this.log(rev[1])
-      this.log(rev[2])
-      this.done = true
+  @subscribe.candle(1)
+  async m1(ohlcs: I.OHLCType[]) {
+    if(!this.mm1) {
+      this.mm1 = {
+        name: 'm1',
+        ohlc: ohlcs[0],
+        length: ohlcs.length,
+      }
+      return
+    }
+    if(this.mm1.ohlc.timestamp !== ohlcs[0].timestamp) {
+      this.log(this.mm1)
+    }
+    this.mm1 = {
+      name: 'm1',
+      ohlc: ohlcs[0],
+      length: ohlcs.length,
+    }
+  }
+
+  @subscribe.candle(1, 5)
+  async m1l5(ohlcs: I.OHLCType[]) {
+    if(!this.mm1l5) {
+      this.mm1l5 = {
+        name: 'm1l5',
+        ohlc: ohlcs[0],
+        length: ohlcs.length,
+      }
+      return
+    }
+    if(this.mm1l5.ohlc.timestamp !== ohlcs[0].timestamp) {
+      this.log(this.mm1l5)
+    }
+    this.mm1l5 = {
+      name: 'm1l5',
+      ohlc: ohlcs[0],
+      length: ohlcs.length,
+    }
+  }
+
+  @subscribe.candle(3, 4)
+  async m3(ohlcs: I.OHLCType[]) {
+    if(!this.mm3) {
+      this.mm3 = {
+        name: 'm3',
+        ohlc: ohlcs[0],
+        length: ohlcs.length,
+      }
+      return
+    }
+    if(this.mm3.ohlc.timestamp !== ohlcs[0].timestamp) {
+      this.log(this.mm3)
+    }
+    this.mm3 = {
+      name: 'm3',
+      ohlc: ohlcs[0],
+      length: ohlcs.length,
     }
   }
 
@@ -117,8 +180,22 @@ class TestTradeCandleBot extends BaseBot {
 
 
 
-class TestCandleBot extends BaseBot {
-  ohlcs: I.OHLCType[] = []
+class CandleBot extends BaseBot {
+  mm1: {
+    name: string
+    ohlc: I.OHLCType
+    length: number
+  }
+  mm1l5: {
+    name: string
+    ohlc: I.OHLCType
+    length: number
+  }
+  mm3: {
+    name: string
+    ohlc: I.OHLCType
+    length: number
+  }
 
   constructor(code: string) {
     super(code)
@@ -129,11 +206,31 @@ class TestCandleBot extends BaseBot {
     return msg
   }
 
-  @subscribe.candle(10, 10)
-  async onCandle10m(ohlcs: I.OHLCType[]) {
-    const from = '2021-09-13T00:00:00+00:00'
-    const to = '2021-09-13T01:40:00+00:00'
-    this.log(ohlcs[0])
+  @subscribe.candle(1)
+  async m1(ohlcs: I.OHLCType[]) {
+    this.log({
+      name: 'm1',
+      ohlc: ohlcs[0],
+      length: ohlcs.length,
+    })
+  }
+
+  @subscribe.candle(1, 5)
+  async m1l5(ohlcs: I.OHLCType[]) {
+    this.log({
+      name: 'm1l5',
+      ohlc: ohlcs[0],
+      length: ohlcs.length,
+    })
+  }
+
+  @subscribe.candle(3, 4)
+  async m3(ohlcs: I.OHLCType[]) {
+    this.log({
+      name: 'm3',
+      ohlc: ohlcs[0],
+      length: ohlcs.length,
+    })
   }
 
   @subscribe.start
@@ -151,6 +248,7 @@ class TestCandleBot extends BaseBot {
 
 
 
+
 const codes = [
   "KRW-BTC",
   "KRW-ETH",
@@ -162,8 +260,6 @@ test.before(() => {
   removeSync(join(__dirname, 'test-mock.db'))
 })
 
-
-
 test.serial('intro', async t => {
   const api = new UPbitSequence(getConfig('./config.json').upbit_keys)
   const trs = await api.allTradesTicks({
@@ -174,9 +270,6 @@ test.serial('intro', async t => {
   console.log(trs[0])
   t.pass()
 })
-
-
-
 
 test.serial('UPbitTradeMock: mock 모드에서는 tiker와 orderbook을 제공하지 않는다.', async t => {
   const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'trade', {
@@ -256,79 +349,238 @@ test.serial('UPbitTradeMock', async t => {
   }
 })
 
-test.serial('trade candle', async t => {
+test.serial('UPbitTradeMock: candle', async t => {
   writer.clear()
   const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'trade_candle', {
     daysAgo: 0,
-    to: '00:03:00',
+    to: '00:16:00',
   })
-  const bot = new TestTradeCandleBot('KRW-BTC')
+  const bot = new TradeCandleBot('KRW-BTC')
   mock.addBot(bot)
   await mock.open()
   const m = writer.memory
+  t.is(m.length, 37)
   t.is(m[0], 'started')
-  t.is(m[4], 'finished')
-  const first: I.OHLCType = m[1]
-  const second: I.OHLCType = m[2]
+  t.is(m[m.length - 1], 'finished')
+  m.splice(0, 1)
+  m.splice(m.length - 1, 1)
+  const m1: {
+    name: string
+    ohlc: I.OHLCType
+    length: number
+  }[] = m.filter(o => o.name === 'm1').map(o => {
+    o.ohlc.volume = floor(o.ohlc.volume, 4)
+    o.time = format(new Date(o.ohlc.timestamp), 'isoDateTime')
+    return o
+  })
+  const m1l5: {
+    name: string
+    ohlc: I.OHLCType
+    length: number
+  }[] = m.filter(o => o.name === 'm1l5').map(o => {
+    o.ohlc.volume = floor(o.ohlc.volume, 4)
+    o.time = format(new Date(o.ohlc.timestamp), 'isoDateTime')
+    return o
+  })
+  const m3: {
+    name: string
+    ohlc: I.OHLCType
+    length: number
+  }[] = m.filter(o => o.name === 'm3').map(o => {
+    o.ohlc.volume = floor(o.ohlc.volume, 4)
+    o.time = format(new Date(o.ohlc.timestamp), 'isoDateTime')
+    return o
+  })
+  console.log('m1 ------------------------------------------')
+  console.log(m1)
+  console.log('m1l5 ----------------------------------------')
+  console.log(m1l5)
+  console.log('m3 ------------------------------------------')
+  console.log(m3)
+  t.is(m1.length, 15)
+  m1.forEach((m, i) => {
+    t.is(m.length, Math.min(i + 1, 10))
+  })
+  t.is(m1l5.length, 15)
+  m1l5.forEach((m, i) => {
+    t.is(m.length, Math.min(i + 1, 5))
+  })
+  t.is(m3.length, 5)
+  m3.forEach((m, i) => {
+    t.is(m.length, Math.min(i + 1, 4))
+  })
   const api = new UPbitSequence(getConfig().upbit_keys)
-  const cc = (await api.allCandlesMinutes(1, {
+  const c1 = (await api.allCandlesMinutes(1, {
     market: 'KRW-BTC',
-    from: format(new Date(first.timestamp), 'isoDateTime'),
-    to: format(new Date(m[3].timestamp), 'isoDateTime'),
-  })).reverse()
-  first.volume = floor(first.volume, 4)
-  second.volume = floor(second.volume, 4)
-  t.deepEqual(first, {
-    open: cc[0].opening_price,
-    high: cc[0].high_price,
-    low: cc[0].low_price,
-    close: cc[0].trade_price,
-    volume: floor(cc[0].candle_acc_trade_volume, 4),
-    timestamp: new Date(cc[0].candle_date_time_utc + '+00:00').getTime(),
+    from: format(new Date(m1[0].ohlc.timestamp), 'isoDateTime'),
+    to: format(new Date(m1[m1.length - 1].ohlc.timestamp + 1000 * 60), 'isoDateTime'),
+  })).reverse().map((c): I.OHLCType => {
+    return {
+      open: c.opening_price,
+      high: c.high_price,
+      low: c.low_price,
+      close: c.trade_price,
+      volume: floor(c.candle_acc_trade_volume, 4),
+      timestamp: new Date(c.candle_date_time_utc + '+00:00').getTime(),
+    }
   })
-  t.deepEqual(second, {
-    open: cc[1].opening_price,
-    high: cc[1].high_price,
-    low: cc[1].low_price,
-    close: cc[1].trade_price,
-    volume: floor(cc[1].candle_acc_trade_volume, 4),
-    timestamp: new Date(cc[1].candle_date_time_utc + '+00:00').getTime(),
+  t.is(m1.length, c1.length)
+  for(let i = 0; i < m1.length; i++) {
+    t.deepEqual(m1[i].ohlc, c1[i])
+  }
+  const c1l5 = (await api.allCandlesMinutes(1, {
+    market: 'KRW-BTC',
+    from: format(new Date(m1l5[0].ohlc.timestamp), 'isoDateTime'),
+    to: format(new Date(m1l5[m1l5.length - 1].ohlc.timestamp + 1000 * 60), 'isoDateTime'),
+  })).reverse().map((c): I.OHLCType => {
+    return {
+      open: c.opening_price,
+      high: c.high_price,
+      low: c.low_price,
+      close: c.trade_price,
+      volume: floor(c.candle_acc_trade_volume, 4),
+      timestamp: new Date(c.candle_date_time_utc + '+00:00').getTime(),
+    }
   })
+  t.is(m1l5.length, c1l5.length)
+  for(let i = 0; i < m1l5.length; i++) {
+    t.deepEqual(m1l5[i].ohlc, c1l5[i])
+  }
+  const c3 = (await api.allCandlesMinutes(3, {
+    market: 'KRW-BTC',
+    from: format(new Date(m3[0].ohlc.timestamp), 'isoDateTime'),
+    to: format(new Date(m3[m3.length - 1].ohlc.timestamp + 1000 * 60), 'isoDateTime'),
+  })).reverse().map((c): I.OHLCType => {
+    return {
+      open: c.opening_price,
+      high: c.high_price,
+      low: c.low_price,
+      close: c.trade_price,
+      volume: floor(c.candle_acc_trade_volume, 4),
+      timestamp: new Date(c.candle_date_time_utc + '+00:00').getTime(),
+    }
+  })
+  t.is(m3.length, c3.length)
+  for(let i = 0; i < m3.length; i++) {
+    t.deepEqual(m3[i].ohlc, c3[i])
+  }
 })
 
 test.serial('UPbitCandleMock', async t => {
-  t.plan(16)
   writer.clear()
-  const from = '2021-09-13T00:00:00+00:00'
-  const to = '2021-09-13T01:40:00+00:00'
+  const from = '2022-09-01T00:00:00+00:00'
+  const to = '2022-09-01T00:15:00+00:00'
   const mock = new UPbitCandleMock(join(__dirname, 'test-mock.db'), 'candle', {
     from,
     to,
   })
-  const bot = new TestCandleBot('KRW-BTC')
+  const bot = new CandleBot('KRW-BTC')
   mock.addBot(bot)
   await mock.open()
   const m = writer.memory
-  t.is(m.shift(), 'started')
-  t.is(m.pop(), 'finished')
-  t.is(m.length, 10)
+  t.is(m.length, 37)
+  t.is(m[0], 'started')
+  t.is(m[m.length - 1], 'finished')
+  m.splice(0, 1)
+  m.splice(m.length - 1, 1)
+  const m1: {
+    name: string
+    ohlc: I.OHLCType
+    length: number
+  }[] = m.filter(o => o.name === 'm1').map(o => {
+    o.ohlc.volume = floor(o.ohlc.volume, 4)
+    o.time = format(new Date(o.ohlc.timestamp), 'isoDateTime')
+    return o
+  })
+  const m1l5: {
+    name: string
+    ohlc: I.OHLCType
+    length: number
+  }[] = m.filter(o => o.name === 'm1l5').map(o => {
+    o.ohlc.volume = floor(o.ohlc.volume, 4)
+    o.time = format(new Date(o.ohlc.timestamp), 'isoDateTime')
+    return o
+  })
+  const m3: {
+    name: string
+    ohlc: I.OHLCType
+    length: number
+  }[] = m.filter(o => o.name === 'm3').map(o => {
+    o.ohlc.volume = floor(o.ohlc.volume, 4)
+    o.time = format(new Date(o.ohlc.timestamp), 'isoDateTime')
+    return o
+  })
+  console.log('m1 ------------------------------------------')
+  console.log(m1)
+  console.log('m1l5 ----------------------------------------')
+  console.log(m1l5)
+  console.log('m3 ------------------------------------------')
+  console.log(m3)
+  t.is(m1.length, 15)
+  m1.forEach((m, i) => {
+    t.is(m.length, Math.min(i + 1, 10))
+  })
+  t.is(m1l5.length, 15)
+  m1l5.forEach((m, i) => {
+    t.is(m.length, Math.min(i + 1, 5))
+  })
+  t.is(m3.length, 5)
+  m3.forEach((m, i) => {
+    t.is(m.length, Math.min(i + 1, 4))
+  })
   const api = new UPbitSequence(getConfig().upbit_keys)
-  const cc = (await api.allCandlesMinutes(10, {
-    market: bot.code,
+  const c1 = (await api.allCandlesMinutes(1, {
+    market: 'KRW-BTC',
     from,
     to,
-  }))
-  t.is(cc.length, 10)
-  m.reverse().forEach((o, i) => {
-    t.deepEqual(o, {
-      open: cc[i].opening_price,
-      high: cc[i].high_price,
-      low: cc[i].low_price,
-      close: cc[i].trade_price,
-      volume: cc[i].candle_acc_trade_volume,
-      timestamp: new Date(cc[i].candle_date_time_utc + '+00:00').getTime(),
-    })
+  })).reverse().map((c): I.OHLCType => {
+    return {
+      open: c.opening_price,
+      high: c.high_price,
+      low: c.low_price,
+      close: c.trade_price,
+      volume: floor(c.candle_acc_trade_volume, 4),
+      timestamp: new Date(c.candle_date_time_utc + '+00:00').getTime(),
+    }
   })
-  t.is(m[m.length - 1].timestamp, new Date(from).getTime())
-  t.is(m[0].timestamp, new Date(to).getTime() - (1000 * 60 * 10))
+  t.is(m1.length, c1.length)
+  for(let i = 0; i < m1.length; i++) {
+    t.deepEqual(m1[i].ohlc, c1[i])
+  }
+  const c1l5 = (await api.allCandlesMinutes(1, {
+    market: 'KRW-BTC',
+    from,
+    to,
+  })).reverse().map((c): I.OHLCType => {
+    return {
+      open: c.opening_price,
+      high: c.high_price,
+      low: c.low_price,
+      close: c.trade_price,
+      volume: floor(c.candle_acc_trade_volume, 4),
+      timestamp: new Date(c.candle_date_time_utc + '+00:00').getTime(),
+    }
+  })
+  t.is(m1l5.length, c1l5.length)
+  for(let i = 0; i < m1l5.length; i++) {
+    t.deepEqual(m1l5[i].ohlc, c1l5[i])
+  }
+  const c3 = (await api.allCandlesMinutes(3, {
+    market: 'KRW-BTC',
+    from,
+    to,
+  })).reverse().map((c): I.OHLCType => {
+    return {
+      open: c.opening_price,
+      high: c.high_price,
+      low: c.low_price,
+      close: c.trade_price,
+      volume: floor(c.candle_acc_trade_volume, 4),
+      timestamp: new Date(c.candle_date_time_utc + '+00:00').getTime(),
+    }
+  })
+  t.is(m3.length, c3.length)
+  for(let i = 0; i < m3.length; i++) {
+    t.deepEqual(m3[i].ohlc, c3[i])
+  }
 })

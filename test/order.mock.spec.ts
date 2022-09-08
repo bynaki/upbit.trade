@@ -547,7 +547,7 @@ if(true) {
     const makeBidMsg = await order.updateOrderStatus(makeBidId)
     t.is(makeBidMsg.name, 'cancel_bid')
     t.is(makeBidMsg.description.uuid, makeBidId)
-    await stop(2000)
+    await stop(5000)
     const takeBid = await order.updateOrderStatus(res.uuid)
     t.is(takeBid.name, 'bid')
     t.is(takeBid.description.ord_type, 'price')
