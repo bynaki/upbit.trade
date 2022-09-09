@@ -5,7 +5,7 @@ import Observable from 'zen-observable'
 
 
 
-test('websocket > trade', t => {
+test.serial('websocket > trade', t => {
   t.plan(2)
   return new Observable(obs => {
     const ws = new WebSocket('wss://api.upbit.com/websocket/v1')
@@ -46,7 +46,7 @@ test('websocket > trade', t => {
   })
 })
 
-test('websocket > orderbook', t => {
+test.serial('websocket > orderbook', t => {
   t.plan(2)
   return new Observable(obs => {
     const ws = new WebSocket('wss://api.upbit.com/websocket/v1')
@@ -87,7 +87,7 @@ test('websocket > orderbook', t => {
   })
 })
 
-test('websocket > ticker', t => {
+test.serial('websocket > ticker', t => {
   t.plan(2)
   return new Observable(obs => {
     const ws = new WebSocket('wss://api.upbit.com/websocket/v1')

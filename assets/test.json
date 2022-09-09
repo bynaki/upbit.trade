@@ -1,0 +1,16 @@
+{
+  "ava": {
+    "files": [
+      "dist.test/test/**/api.spec.js",
+      "dist.test/test/**/bot.spec.js",
+      "dist.test/test/**/database.spec.js",
+      "dist.test/test/**/indicators.spec.js",
+      "dist.test/test/**/mock.spec.js",
+      "dist.test/test/**/order.mock.spec.js",
+      "dist.test/test/**/order.spec.js",
+      "dist.test/test/**/socket.spec.js",
+      "dist.test/test/**/upbit.sequence.spec.js",
+      "dist.test/test/**/utils.spec.js"
+    ]
+  }
+}

@@ -11,13 +11,13 @@ test.before('codes', async t => {
   codes = await allMarketCode()
 })
 
-test('codes', async t => {
+test.serial('codes', async t => {
   console.log('allMarketCode() ---------------------------------')
   console.log(await allMarketCode())
   t.pass()
 })
 
-test.only('#getOrderChance()', async t => {
+test.serial('#getOrderChance()', async t => {
   console.log('#getOrderChance() ---------------------------------')
   for(let code of codes) {
     console.log((await api.getOrdersChance({market: code})).data)

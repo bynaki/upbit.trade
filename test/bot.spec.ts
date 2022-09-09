@@ -11,7 +11,6 @@ import {
 import {
   logger,
   stop,
-  // Observable,
 } from 'fourdollar'
 import {
   join,
@@ -20,7 +19,7 @@ import {
   readFile,
 } from 'fs/promises'
 import {
-  remove, removeSync,
+  removeSync,
 } from 'fs-extra'
 import {
   Observable,
@@ -29,12 +28,12 @@ import {
 
 
 
-test('Bot#name', t => {
+test.serial('Bot#name', t => {
   const bot = new TestBot('KRW-BTC')
   t.is(bot.name, 'TestBot:KRW-BTC')
 })
 
-test('UPbitSocket#open() & UPbitSocket#close()', async t => {
+test.serial('UPbitSocket#open() & UPbitSocket#close()', async t => {
   const us = new UPbitSocket()
   t.is(us.state, I.SocketState.Closed)
   await us.open()
@@ -43,31 +42,14 @@ test('UPbitSocket#open() & UPbitSocket#close()', async t => {
   t.is(us.state, I.SocketState.Closed)
 })
 
-// test('UPbitSocket#addBot(): start와 finish만 있다면 추가되지 않는다.', t => {
-//   const socket = new UPbitSocket()
-//   const test = new Test('KRW-BTC')
-//   test.subscribe(I.EventType.Start, {
-//     next(socket: UPbitSocket) {
-//       t.fail()
-//     }
-//   })
-//   test.subscribe(I.EventType.Finish, {
-//     next() {
-//       t.fail()
-//     }
-//   })
-//   socket.addBot(test)
-//   t.is(socket.getBots().length, 0)
-// })
-
-test('UPbitSocket#addBot(): 이름이 같으면 추가되지 않는다.', t => {
+test.serial('UPbitSocket#addBot(): 이름이 같으면 추가되지 않는다.', t => {
   const us = new UPbitSocket()
   us.addBot(new TestBot('KRW-BTC'))
   us.addBot(new TestBot('KRW-BTC'))
   t.is(us.getBots().length, 1)
 })
 
-test('UPbitSocket#addBot(): 같은 클래스라도 이름이 다르면 추가된다.', t => {
+test.serial('UPbitSocket#addBot(): 같은 클래스라도 이름이 다르면 추가된다.', t => {
   const us = new UPbitSocket()
   us.addBot(new IdBot('KRW-BTC', 1))
   us.addBot(new IdBot('KRW-BTC', 2))
@@ -80,14 +62,14 @@ test('UPbitSocket#addBot(): 같은 클래스라도 이름이 다르면 추가된
   t.is(us.getBots()[3].name, 'IdBot:KRW-BTC:4')
 })
 
-test('UPbitSocket#addBot(): 여러개 추가할 수 있다.', t => {
+test.serial('UPbitSocket#addBot(): 여러개 추가할 수 있다.', t => {
   const us = new UPbitSocket()
   us.addBot(...[new IdBot('KRW-BTC', 1), new IdBot('KRW-BTC', 2)])
   us.addBot(new TestBot('KRW-BTC'), new TestBot('KRW-ETH'))
   t.is(us.getBots().length, 4)
 })
 
-test('UPbitSocket#addBotClass(): 클래스 단위로 추가할 수 있다.', t => {
+test.serial('UPbitSocket#addBotClass(): 클래스 단위로 추가할 수 있다.', t => {
   const us = new UPbitSocket()
   us.addBotClass(TestBot, [
     'KRW-BTC',
@@ -107,7 +89,7 @@ test('UPbitSocket#addBotClass(): 클래스 단위로 추가할 수 있다.', t =
   ])
 })
 
-test('UPbitSocket#addBot() & UPbitSocket#getBots()', t => {
+test.serial('UPbitSocket#addBot() & UPbitSocket#getBots()', t => {
   const us = new UPbitSocket()
   us.addBotClass(TestBot, [
     'KRW-BTC',
@@ -174,7 +156,7 @@ test('UPbitSocket#addBot() & UPbitSocket#getBots()', t => {
   t.is(us.getBots().length, 11)
 })
 
-test('UPbitSocket#requests()', t => {
+test.only('UPbitSocket#requests()', t => {
   const us = new UPbitSocket()
   us.addBotClass(TestBot, [
     'KRW-BTC',

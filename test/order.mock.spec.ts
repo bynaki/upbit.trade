@@ -73,7 +73,7 @@ if(true) {
 
   test.before(async t => {
     setTimeout(async () => {
-      const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'trade_order', {
+      const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'order_trade_order', {
         daysAgo: 1,
         to: '00:00:00',
       })
@@ -666,7 +666,7 @@ if(true) {
     setTimeout(async () => {
       const from = '2022-09-01T00:00:00+00:00'
       const to = '2022-09-02T00:00:00+00:00'
-      const mock = new UPbitCandleMock(join(__dirname, 'test-mock.db'), 'candle_order', {
+      const mock = new UPbitCandleMock(join(__dirname, 'test-mock.db'), 'order_candle_order', {
         from,
         to,
       })

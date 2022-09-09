@@ -37,17 +37,17 @@ const codes = [
 
 test.serial('readyTrade(): 데이터베이스 테이블이 존재하지 않은면 params 인수를 생략하면 에러가 발생한다.', async t => {
   try {
-    const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade')
+    const db = await readyTrade(join(__dirname, 'test-db.db'), 'database_trade')
   } catch(e) {
-    t.is(e.message, `'${join(__dirname, 'test-db.db')}' 데이터베이스에 'trade' 테이블이 없다.`)
+    t.is(e.message, `'${join(__dirname, 'test-db.db')}' 데이터베이스에 'database_trade' 테이블이 없다.`)
   }
 })
 
 test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은면 params 인수를 생략하면 에러가 발생한다.', async t => {
   try {
-    const db = await readyCandle(join(__dirname, 'test-db.db'), 'candle')
+    const db = await readyCandle(join(__dirname, 'test-db.db'), 'database_candle')
   } catch(e) {
-    t.is(e.message, `'${join(__dirname, 'test-db.db')}' 데이터베이스에 'candle' 테이블이 없다.`)
+    t.is(e.message, `'${join(__dirname, 'test-db.db')}' 데이터베이스에 'database_candle' 테이블이 없다.`)
   }
 })
 
@@ -60,11 +60,11 @@ test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은�
       to: '00:01:00',
       codes,
     }
-    const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade', params)
+    const db = await readyTrade(join(__dirname, 'test-db.db'), 'database_trade', params)
     type = await db.getType()
     console.log(type)
     t.deepEqual(type, {
-      name: 'trade',
+      name: 'database_trade',
       create_date: type.create_date,
       params,
       order_by: 'sequential_id',
@@ -81,7 +81,7 @@ test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은�
       to: '00:01:00',
       codes,
     }
-    const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade', params)
+    const db = await readyTrade(join(__dirname, 'test-db.db'), 'database_trade', params)
     t.is((await db.getType()).create_date, type.create_date)
     let got: DbTradeTickType
     for await (got of db.each()) {
@@ -90,7 +90,7 @@ test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은�
   })
 
   test.serial('readyTrade(): 데이터베이스 테이블이 존재할 때 인수를 생략할 수 있다.', async t => {
-    const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade')
+    const db = await readyTrade(join(__dirname, 'test-db.db'), 'database_trade')
     t.is((await db.getType()).create_date, type.create_date)
     let got: DbTradeTickType
     for await (got of db.each()) {
@@ -104,7 +104,7 @@ test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은�
       to: '00:00:30',
       codes,
     }
-    const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade', params)
+    const db = await readyTrade(join(__dirname, 'test-db.db'), 'database_trade', params)
     t.not((await db.getType()).create_date, type.create_date)
     let got: DbTradeTickType
     for await (got of db.each()) {
@@ -118,14 +118,14 @@ test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은�
       to: '00:00:30',
       codes,
     }
-    const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade', params)
+    const db = await readyTrade(join(__dirname, 'test-db.db'), 'database_trade', params)
     for await (const got of db.each(codes[0])) {
       t.is(got.market, codes[0])
     }
   })
 
   test.serial('readyTrade(): count를 구할 수 있다.', async t => {
-    const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade')
+    const db = await readyTrade(join(__dirname, 'test-db.db'), 'database_trade')
     let count = 0
     for await (const tr of db.each()) {
       count++
@@ -150,11 +150,11 @@ test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은�
       from: '2021-08-24T00:00:00+00:00',
       to: '2021-08-24T00:10:00+00:00',
     }
-    const db = await readyCandle(join(__dirname, 'test-db.db'), 'candle', params)
+    const db = await readyCandle(join(__dirname, 'test-db.db'), 'database_candle', params)
     type = await db.getType()
     console.log(type)
     t.deepEqual(type, {
-      name: 'candle',
+      name: 'database_candle',
       create_date: type.create_date,
       params,
       order_by: 'timestamp',
@@ -175,7 +175,7 @@ test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은�
       from: '2021-08-24T00:00:00+00:00',
       to: '2021-08-24T00:10:00+00:00',
     }
-    const db = await readyCandle(join(__dirname, 'test-db.db'), 'candle', params)
+    const db = await readyCandle(join(__dirname, 'test-db.db'), 'database_candle', params)
     t.is((await db.getType()).create_date, type.create_date)
     const candles: DbCandleMinuteType[] = []
     for await (let got of db.each()) {
@@ -188,7 +188,7 @@ test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은�
   })
 
   test.serial('readyCandle(): 데이터베이스 테이블이 존재할 때 인수를 생략할 수 있다.', async t => {
-    const db = await readyCandle(join(__dirname, 'test-db.db'), 'candle')
+    const db = await readyCandle(join(__dirname, 'test-db.db'), 'database_candle')
     t.is((await db.getType()).create_date, type.create_date)
     const candles: DbCandleMinuteType[] = []
     for await (let got of db.each()) {
@@ -206,7 +206,7 @@ test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은�
       from: '2021-08-24T00:00:00+00:00',
       to: '2021-08-24T00:05:00+00:00',
     }
-    const db = await readyCandle(join(__dirname, 'test-db.db'), 'candle', params)
+    const db = await readyCandle(join(__dirname, 'test-db.db'), 'database_candle', params)
     t.not((await db.getType()).create_date, type.create_date)
     const candles: DbCandleMinuteType[] = []
     for await (let got of db.each()) {
@@ -224,7 +224,7 @@ test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은�
       from: '2021-08-24T00:00:00+00:00',
       to: '2021-08-24T00:05:00+00:00',
     }
-    const db = await readyCandle(join(__dirname, 'test-db.db'), 'candle', params)
+    const db = await readyCandle(join(__dirname, 'test-db.db'), 'database_candle', params)
     t.not((await db.getType()).create_date, type.create_date)
     const candles: DbCandleMinuteType[] = []
     for await (let got of db.each(codes[0])) {
@@ -237,7 +237,7 @@ test.serial('readyCandle(): 데이터베이스 테이블이 존재하지 않은�
   })
 
   test.serial('readyCandle(): count를 구할 수 있다.', async t => {
-    const db = await readyCandle(join(__dirname, 'test-db.db'), 'candle')
+    const db = await readyCandle(join(__dirname, 'test-db.db'), 'database_candle')
     t.is(await db.count(), 20)
     t.is(await db.count(codes[0]), 5)
   })
@@ -250,7 +250,7 @@ test.serial('DbTable#get()', async t => {
     to: '00:01:00',
     codes,
   }
-  const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade', params)
+  const db = await readyTrade(join(__dirname, 'test-db.db'), 'database_trade', params)
   const count = await db.count(codes[0])
   const length = Math.floor(count / 3)
   const res: DbTradeTickType[] = []
@@ -322,7 +322,7 @@ function toCandleType(dbType: DbCandleMinuteType): Iu.CandleMinuteType {
       to: '00:01:00',
       codes,
     }
-    const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade', params)
+    const db = await readyTrade(join(__dirname, 'test-db.db'), 'database_trade', params)
     for(let i = 0; i < codes.length; i++) {
       let count = 0
       const nas = (await api.allTradesTicks({
@@ -346,7 +346,7 @@ function toCandleType(dbType: DbCandleMinuteType): Iu.CandleMinuteType {
       from: '2021-08-24T00:00:00+00:00',
       to: '2021-08-24T00:10:00+00:00',
     }
-    const db = await readyCandle(join(__dirname, 'test-db.db'), 'candle', params)
+    const db = await readyCandle(join(__dirname, 'test-db.db'), 'database_candle', params)
     for(let code of codes) {
       let count = 0
       const nas = (await api.allCandlesMinutes(1, {
@@ -368,7 +368,7 @@ function toCandleType(dbType: DbCandleMinuteType): Iu.CandleMinuteType {
       to: '00:01:00',
       codes: ['KRW-BTC'],
     }
-    const db = await readyTrade(join(__dirname, 'test-db.db'), 'trade_long', params)
+    const db = await readyTrade(join(__dirname, 'test-db.db'), 'database_trade_long', params)
     let pre: DbTradeTickType
     let count = 0
     for await (const tr of db.each()) {
@@ -383,7 +383,7 @@ function toCandleType(dbType: DbCandleMinuteType): Iu.CandleMinuteType {
   })
 
   test.serial('DbTable#each(): candle long', async t => {
-    const db = await readyCandle(join(__dirname, 'test-db.db'), 'candle_long', {
+    const db = await readyCandle(join(__dirname, 'test-db.db'), 'database_candle_long', {
       comins: ['KRW-BTC:1'],
       from: '2021-09-12T00:00:00+00:00',
       to: '2021-09-13T00:00:00+00:00',

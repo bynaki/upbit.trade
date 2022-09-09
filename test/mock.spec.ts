@@ -272,7 +272,7 @@ test.serial('intro', async t => {
 })
 
 test.serial('UPbitTradeMock: mock 모드에서는 tiker와 orderbook을 제공하지 않는다.', async t => {
-  const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'trade', {
+  const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'mock_trade', {
     daysAgo: 0,
     to: '00:00:10',
   })
@@ -292,7 +292,7 @@ test.serial('UPbitTradeMock: mock 모드에서는 tiker와 orderbook을 제공�
 
 test.serial('UPbitTradeMock', async t => {
   writer.clear()
-  const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'trade', {
+  const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'mock_trade', {
     daysAgo: 0,
     to: '00:00:02',
   })
@@ -351,7 +351,7 @@ test.serial('UPbitTradeMock', async t => {
 
 test.serial('UPbitTradeMock: candle', async t => {
   writer.clear()
-  const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'trade_candle', {
+  const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'mock_trade_candle', {
     daysAgo: 0,
     to: '00:16:00',
   })
@@ -470,7 +470,7 @@ test.serial('UPbitCandleMock', async t => {
   writer.clear()
   const from = '2022-09-01T00:00:00+00:00'
   const to = '2022-09-01T00:15:00+00:00'
-  const mock = new UPbitCandleMock(join(__dirname, 'test-mock.db'), 'candle', {
+  const mock = new UPbitCandleMock(join(__dirname, 'test-mock.db'), 'mock_candle', {
     from,
     to,
   })
