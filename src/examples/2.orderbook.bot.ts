@@ -23,8 +23,8 @@ class TestOrderbookBot extends BaseBot {
   }
 
   @logger()
-  log(msg: string) {
-    return `${new Date().toLocaleString()} > ${msg}`
+  log(msg: any) {
+    return msg
   }
 
   @subscribe.start
@@ -42,11 +42,11 @@ class TestOrderbookBot extends BaseBot {
 
   @subscribe.orderbook
   async onOrderbook(ord: I.OrderbookType) {
-    console.log('---------------------------------------')
-    console.log(`count: ${++this.count}`)
-    console.log(ord)
+    this.log('---------------------------------------')
+    this.log(`count: ${++this.count}`)
+    this.log(ord)
     if(this.count === 10) {
-      await this.socket.close()
+      await this.socket.close(true)
     }
   }
 }

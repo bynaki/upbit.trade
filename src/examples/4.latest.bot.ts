@@ -8,6 +8,9 @@ import {
   types as I,
   subscribe,
 } from '../index'
+import {
+  logger,
+} from 'fourdollar'
 
 
 
@@ -18,23 +21,33 @@ class TestLatestDatasBot extends BaseBot {
     super(code)
   }
 
+  @logger()
+  log(msg: any): any {
+    return msg
+  }
+
   @subscribe.start
-  start(socket: UPbitSocket): Promise<void> {
+  start(socket: UPbitSocket) {
     this.socket = socket
-    return
+    this.log('started...')
   }
 
   @subscribe.trade
   async onTrade(tr: I.TradeType) {
-    console.log('Latest Trade:')
-    console.log(this.latest(I.ReqType.Trade))
-    console.log('')
-    console.log('Latest Orderbook:')
-    console.log(this.latest(I.ReqType.Orderbook))
-    console.log('')
-    console.log('Latest Ticker:')
-    console.log(this.latest(I.ReqType.Ticker))
-    this.socket.close(true)
+    this.log('Latest Trade:')
+    this.log(this.latest(I.ReqType.Trade))
+    this.log('')
+    this.log('Latest Orderbook:')
+    this.log(this.latest(I.ReqType.Orderbook))
+    this.log('')
+    this.log('Latest Ticker:')
+    this.log(this.latest(I.ReqType.Ticker))
+    await this.socket.close(true)
+  }
+
+  @subscribe.finish
+  finsh() {
+    this.log('finished...')
   }
 
   @subscribe.orderbook

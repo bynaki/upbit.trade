@@ -12,8 +12,11 @@ import {
   Event,
 } from 'ws'
 import {
-  upbit_types as Iu
+  upbit_types as Iu,
 } from 'cryptocurrency.api'
+import {
+  Observable,
+} from 'fourdollar'
 
 
 export {
@@ -199,12 +202,14 @@ export interface OrderMarketParam extends Iu.OrderMarketParam {}
 
 export interface WrapAPI {
   market: string
-  // setTrade(tr: I.TradeType): void
+  setTrade(tr: TradeType): Promise<void>
+  setCandle(ohlc: OHLCType): Promise<void>
   getPrice(bid_ask?: 'BID'|'ASK'): number
   getTime(bid_ask?: 'BID'|'ASK'): number
   getOrdersChance(): Promise<OrderChanceType>
   getOrderDetail(uuid: string): Promise<OrderDetailType>
   cancel(uuid: string): Promise<OrderType>
   order(params: OrderLimitParam | OrderPriceParam | OrderMarketParam): Promise<OrderType>
+  observer(bid_ask?: 'BID'|'ASK'|'BOTH'): Observable<number>
 }
 

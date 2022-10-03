@@ -9,9 +9,9 @@
 // import {
 //   BaseBot,
 //   types as I,
-//   OrderMarket,
-//   OrderHistory,
+//   SimpleOrder,
 //   UPbitSocket,
+//   subscribe,
 // } from '../index'
 
 
@@ -28,14 +28,21 @@
 
 
 // class TestOrderBot extends BaseBot {
-//   private order: OrderMarket = null
+//   private socket: UPbitSocket
+//   private order: SimpleOrder
 
 //   constructor(code: string) {
 //     super(code)
 //   }
 
-//   @addCandleListener(5, 22)
-//   async Minutes5(ohlcs: I.OHLCType[]) {
+//   @subscribe.start
+//   start(socket: UPbitSocket) {
+//     this.socket = socket
+//   }
+
+
+//   @subscribe.candle(5, 22)
+//   async m5(ohlcs: I.OHLCType[]) {
 //     if(ohlcs.length === 22) {
 //       const m1 = ma(ohlcs.slice(1, 21))
 //       const m2 = ma(ohlcs.slice(2, 22))

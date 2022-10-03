@@ -16,103 +16,81 @@ import {
 } from './utils'
 import {
   uniq,
-  floor,
-  remove,
 } from 'lodash'
 import {
-  format,
-} from 'fecha'
+  Observable,
+  types as If,
+} from 'fourdollar'
 
 
 
+type Subscribers<T> = {
+  observable: Observable<T>
+  subscribers: If.SubscriptionObserver<T>[]
+}
 
 class API implements I.WrapAPI {
-  private _bidTr: I.TradeType
-  private _askTr: I.TradeType
+  private _trs: {
+    BID?: I.TradeType
+    ASK?: I.TradeType
+  } = {}
+  private _subscribers: {
+    ['BID']?: Subscribers<number>
+    ['ASK']?: Subscribers<number>
+    ['BOTH']?: Subscribers<number>
+  } = {}
 
   constructor(public readonly market: string) {
   }
 
-  setTrade(tr: I.TradeType): void {
-    switch(tr.ask_bid) {
-      case 'BID': {
-        this._bidTr = tr
-        break
-      }
-      case 'ASK': {
-        this._askTr = tr
-        break
-      }
-      default: {
-        throw new Error('"BID"도 "ASK"도 아니다.')
+  observer(bid_ask?: 'BID'|'ASK'|'BOTH'): Observable<number> {
+    if(!bid_ask) {
+      bid_ask = 'BOTH'
+    }
+    if(!this._subscribers[bid_ask]) {
+      this._subscribers[bid_ask] = {
+        observable: new Observable<number>(sub => {
+          this._subscribers[bid_ask].subscribers.push(sub)
+          return () => {
+            this._subscribers[bid_ask].subscribers = 
+              this._subscribers[bid_ask].subscribers.filter(s => !s.closed)
+          }
+        }),
+        subscribers: [],
       }
     }
+    return this._subscribers[bid_ask].observable
+  }
+
+  setTrade(tr: I.TradeType): Promise<void> {
+    this._trs[tr.ask_bid] = tr
+    if(this._subscribers[tr.ask_bid]) {
+      return Promise.all(this._subscribers[tr.ask_bid].subscribers.map(sub => sub.next(tr.trade_price)))
+    }
+  }
+
+  setCandle(ohlc: I.OHLCType): Promise<void> {
+    return
   }
 
   getPrice(bid_ask?: 'BID'|'ASK'): number {
-    switch(bid_ask) {
-      case 'BID': {
-        if(!this._bidTr) {
-          throw new Error('아직 "price"가 없다.')
-        }
-        return this._bidTr.trade_price
-      }
-      case 'ASK': {
-        if(!this._askTr) {
-          throw new Error('아직 "price"가 없다.')
-        }
-        return this._askTr.trade_price
-      }
-      default: {
-        if(!(this._bidTr || this._askTr)) {
-          throw new Error('아직 "price"가 없다.')
-        }
-        if(!this._bidTr && this._askTr) {
-          return this._askTr.trade_price
-        }
-        if(!this._askTr && this._bidTr) {
-          return this._bidTr.trade_price
-        }
-        if(this._bidTr.sequential_id > this._askTr.sequential_id) {
-          return this._bidTr.trade_price
-        } else {
-          return this._askTr.trade_price
-        }
-      }
+    if(!bid_ask) {
+      bid_ask = this._initBidAsk()
     }
+    if(!this._trs[bid_ask]) {
+      throw new Error('아직 "price"가 없다.')
+    }
+    return this._trs[bid_ask].trade_price
   }
 
   getTime(bid_ask?: 'BID'|'ASK'): number {
-    switch(bid_ask) {
-      case 'BID': {
-        if(!this._bidTr) {
-          throw new Error('아직 "time"이 없다.')
-        }
-        return this._bidTr.trade_timestamp
-      }
-      case 'ASK': {
-        if(!this._askTr) {
-          throw new Error('아직 "time"이 없다.')
-        }
-        return this._askTr.trade_timestamp
-      }
-      default: {
-        if(!(this._bidTr || this._askTr)) {
-          throw new Error('아직 "time"이 없다.')
-        }
-        if(!this._bidTr && this._askTr) {
-          return this._askTr.trade_timestamp
-        }
-        if(!this._askTr && this._bidTr) {
-          return this._bidTr.trade_timestamp
-        }
-        if(this._bidTr.sequential_id > this._askTr.sequential_id) {
-          return this._bidTr.trade_timestamp
-        } else {
-          return this._askTr.trade_timestamp
-        }
-      }
+    if(!bid_ask) {
+      bid_ask = this._initBidAsk()
     }
+    if(!this._trs[bid_ask]) {
+      throw new Error('아직 "price"가 없다.')
+    }
+    return this._trs[bid_ask].trade_timestamp
   }
 
   async getOrdersChance(): Promise<I.OrderChanceType> {
@@ -129,6 +107,22 @@ class API implements I.WrapAPI {
 
   async order(params: I.OrderLimitParam | I.OrderPriceParam | I.OrderMarketParam): Promise<I.OrderType> {
     return (await api.order(params)).data
+  }
+
+  private _initBidAsk(): 'BID'|'ASK' {
+    if(this._trs['BID'] && this._trs['ASK']) {
+      if(this._trs['BID'].sequential_id > this._trs['ASK'].sequential_id) {
+        return 'BID'
+      }
+      return 'ASK'
+    }
+    if(this._trs['BID']) {
+      return 'BID'
+    }
+    if(this._trs['ASK']) {
+      return 'ASK'
+    }
+    throw new Error('아직 "price"가 없다.')
   }
 }
 
@@ -263,6 +257,7 @@ export abstract class BaseUPbitSocket {
           orderbook: [],
           ticker: [],
         }
+        const api = this.getAPI(bot.code)
         bot['trigger'] = async function<T extends I.ResType>(data: T) {
           this._latests[data.type] = data
           if([I.EventType.Trade, I.EventType.Orderbook, I.EventType.Ticker]
@@ -273,6 +268,9 @@ export abstract class BaseUPbitSocket {
             queue[data.type].push(data)
             while(queue[data.type].length !== 0) {
               const res = queue[data.type][0]
+              if(res.type === I.ReqType.Trade) {
+                await api.setTrade(res as I.TradeType)
+              }
               await Promise.all(this._subscribers[res.type].subscribers.map(sub => sub.next(res)))
               if(queue[data.type].length !== 0) {
                 queue[data.type].shift()
@@ -395,9 +393,6 @@ export class UPbitSocket extends BaseUPbitSocket {
         // console.log('message')
         const d: I.ResType = JSON.parse(data.toString('utf-8'))
         const bots = this.getBots(d.type, d.code)
-        if(d.type === I.ReqType.Trade) {
-          this.getAPI(d.code)['setTrade'](d)
-        }
         bots.forEach(b => b['trigger'](d))
       })
       ws.on('close', (code, reason) => {

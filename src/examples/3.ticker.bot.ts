@@ -16,18 +16,20 @@ import {
 
 class TestTickerBot extends BaseBot {
   private count = 0
+  private socket: UPbitSocket
 
   constructor(code: string) {
     super(code)
   }
 
   @logger()
-  log(msg: string) {
-    return `${new Date().toLocaleString()} > ${msg}`
+  log(msg: any) {
+    return msg
   }
 
   @subscribe.start
   start(socket: UPbitSocket): Promise<void> {
+    this.socket = socket
     this.log('started...')
     return
   }
@@ -40,9 +42,12 @@ class TestTickerBot extends BaseBot {
 
   @subscribe.ticker
   async onTicker(tk: I.TickerType) {
-    console.log('---------------------------------------')
-    console.log(`count: ${++this.count}`)
-    console.log(tk)
+    this.log('---------------------------------------')
+    this.log(`count: ${++this.count}`)
+    this.log(tk)
+    if(this.count === 10) {
+      await this.socket.close(true)
+    }
   }
 }
 

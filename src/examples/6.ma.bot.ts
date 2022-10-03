@@ -2,6 +2,7 @@
  * 이동 평균
  */
 
+import { logger } from 'fourdollar'
 import {
   BaseBot,
   UPbitSocket,
@@ -21,24 +22,48 @@ function ma(ohlcs: I.OHLCType[]) {
 
 
 class TestMABot extends BaseBot {
-  time = -1
+  time: number
+  socket: UPbitSocket
 
   constructor(code: string) {
     super(code)
   }
 
+  @logger()
+  log(msg: any) {
+    return msg
+  }
+
+  @subscribe.start
+  start(socket: UPbitSocket) {
+    this.log('started...')
+    this.socket = socket
+  }
+
   @subscribe.candle(1, 11)
-  aMinute(ohlcs: I.OHLCType[]) {
-    if(this.time === -1) {
+  async aMinute(ohlcs: I.OHLCType[]) {
+    if(!this.time) {
       this.time = ohlcs[0].timestamp
       return
     }
     if(ohlcs[0].timestamp !== this.time) {
       this.time = ohlcs[0].timestamp
-      console.log('')
-      console.log('time:', new Date(this.time))
-      console.log('ma:', ma(ohlcs.splice(1)))
+      this.log('')
+      this.log(`length: ${ohlcs.length}`)
+      this.log({
+        time: new Date(this.time),
+        ma: ma(ohlcs.slice(1, 11)),
+      })
+      if(ohlcs.length === 11) {
+        this.log('closing...')
+        await this.socket.close(true)
+      }
     }
+  }
+
+  @subscribe.finish
+  finish() {
+    this.log('finished...')
   }
 }
 

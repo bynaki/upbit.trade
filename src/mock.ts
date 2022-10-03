@@ -19,6 +19,10 @@ import {
 import {
   readyCandle,
 } from './database'
+import {
+  Observable,
+  types as If,
+} from 'fourdollar'
 
 
 
@@ -64,7 +68,6 @@ export class UPbitTradeMock extends BaseUPbitSocket {
     await this.start()
     for await (let tr of table.each()) {
       const converted = this.convertTradeType(tr)
-      this.getAPI(converted.code)['setTrade'](converted)
       const bots = this.getBots(I.ReqType.Trade, converted.code)
       await Promise.all(bots.map(bot => bot['trigger'](converted)))
     }
@@ -123,14 +126,6 @@ export class UPbitCandleMock extends BaseUPbitSocket {
     return new CandleMockAPI(market)
   }
 
-  addBotB<B extends BaseBot>(...bots: B[]): void {
-    bots.forEach(bot => {
-      bot['triggerB'] = async function(min: 1|3|5|10|15|30|60|240, ohlc: I.OHLCType): Promise<void> {
-
-      }
-    })
-  }
-
   addBot<B extends BaseBot>(...bots: B[]): void {
     bots.forEach(bot => {
       const data: {
@@ -154,7 +149,9 @@ export class UPbitCandleMock extends BaseUPbitSocket {
           limit,
         })
       })
+      const api = this.getAPI(bot.code)
       bot['triggerB'] = async function(min: 1|3|5|10|15|30|60|240, ohlc: I.OHLCType): Promise<void> {
+        await api.setCandle(ohlc)
         const dd = data[min]
         await Promise.all(dd.map(d => {
           d.ohlcs.unshift(ohlc)
@@ -188,7 +185,6 @@ export class UPbitCandleMock extends BaseUPbitSocket {
     await this.start()
     for await (const c of table.each()) {
       const converted = this.convertCandleType(c)
-      this.getAPI(c.market)['setCandle'](converted)
       const ps = this.getBots(I.ReqType.Trade, c.market).map(bot => {
         return bot['triggerB'](c.unit as 1|3|5|10|15|30|60|240, converted)
       })
@@ -213,10 +209,19 @@ export class UPbitCandleMock extends BaseUPbitSocket {
 
 
 
+type Subscribers<T> = {
+  observable: Observable<T>
+  subscribers: If.SubscriptionObserver<T>[]
+}
 
 abstract class BaseMockAPI implements I.WrapAPI {
   private _orders: {[uuid: string]: I.OrderDetailType} = {}
   private _waitings: I.OrderDetailType[] = []
+  protected _subscribers: {
+    ['BID']?: Subscribers<number>
+    ['ASK']?: Subscribers<number>
+    ['BOTH']?: Subscribers<number>
+  } = {}
 
   constructor(public readonly market: string) {
   }
@@ -226,7 +231,8 @@ abstract class BaseMockAPI implements I.WrapAPI {
 
   // 지정가 매수
   protected _makeBid(price: number, time: number) {
-    const status: I.OrderDetailType[] = this._waitings.filter(o => o.ord_type === 'limit' && o.side === 'bid')
+    const status: I.OrderDetailType[] = this._waitings.filter(
+      o => o.ord_type === 'limit' && o.side === 'bid' && o.state === 'wait')
     .filter(o => o.price >= price)
     .map((o): I.OrderDetailType => {
       return {
@@ -263,7 +269,8 @@ abstract class BaseMockAPI implements I.WrapAPI {
   }
 
   protected _makeAsk(price: number, time: number) {
-    const status: I.OrderDetailType[] = this._waitings.filter(o => o.side === 'ask' && o.ord_type === 'limit')
+    const status: I.OrderDetailType[] = this._waitings.filter(
+      o => o.side === 'ask' && o.ord_type === 'limit' && o.state === 'wait')
     .filter(o => o.price <= price)
     .map(o => {
       return {
@@ -301,7 +308,8 @@ abstract class BaseMockAPI implements I.WrapAPI {
 
   // 시장가 매수
   protected _takeBid(price: number, time: number) {
-    const status: I.OrderDetailType[] = this._waitings.filter(o => o.ord_type === 'price' && o.side === 'bid')
+    const status: I.OrderDetailType[] = this._waitings.filter(
+      o => o.ord_type === 'price' && o.side === 'bid' && o.state === 'wait')
     .map(o => {
       const volume = o.price / price
       return {
@@ -339,7 +347,8 @@ abstract class BaseMockAPI implements I.WrapAPI {
 
   // 시장가 매도
   protected _takeAsk(price: number, time: number) {
-    const status: I.OrderDetailType[] = this._waitings.filter(o => o.ord_type === 'market' && o.side === 'ask')
+    const status: I.OrderDetailType[] = this._waitings.filter(
+      o => o.ord_type === 'market' && o.side === 'ask' && o.state === 'wait')
     .map(o => {
       return {
         uuid: o.uuid,
@@ -525,33 +534,61 @@ abstract class BaseMockAPI implements I.WrapAPI {
     if(s.state !== 'wait') {
       throw new Error('매매를 취소 할 수 있는 상태가 아니다.')
     }
+    this._waitings = this._waitings.filter(s => !((s.uuid === uuid) && (s.state === 'done')))
     this._waitings.push(Object.assign({}, s, {
       state: 'cancel',
     }))
     return s as any
+  }
+
+  observer(bid_ask?: 'BID'|'ASK'|'BOTH'): Observable<number> {
+    if(!bid_ask) {
+      bid_ask = 'BOTH'
+    }
+    if(!this._subscribers[bid_ask]) {
+      this._subscribers[bid_ask] = {
+        observable: new Observable<number>(sub => {
+          this._subscribers[bid_ask].subscribers.push(sub)
+          return () => {
+            this._subscribers[bid_ask].subscribers = 
+              this._subscribers[bid_ask].subscribers.filter(s => !s.closed)
+          }
+        }),
+        subscribers: [],
+      }
+    }
+    return this._subscribers[bid_ask].observable
+  }
+
+  setTrade(tr: I.TradeType): Promise<void> {
+    return
+  }
+
+  setCandle(ohlc: I.OHLCType): Promise<void> {
+    return
   }
 }
 
 
 
 class TradeMockAPI extends BaseMockAPI {
-  private _bidTr: I.TradeType
-  private _askTr: I.TradeType
+  private _trs: {
+    BID?: I.TradeType
+    ASK?: I.TradeType
+  } = {}
 
   constructor(market: string) {
     super(market)
   }
 
-  setTrade(tr: I.TradeType): void {
+  async setTrade(tr: I.TradeType): Promise<void> {
     switch(tr.ask_bid) {
       case 'BID': {
-        this._bidTr = tr
         this._makeBid(tr.trade_price, tr.trade_timestamp)
         this._takeAsk(tr.trade_price, tr.trade_timestamp)
         break
       }
       case 'ASK': {
-        this._askTr = tr
         this._makeAsk(tr.trade_price, tr.trade_timestamp)
         this._takeBid(tr.trade_price, tr.trade_timestamp)
         break
@@ -560,73 +597,48 @@ class TradeMockAPI extends BaseMockAPI {
         throw new Error('"BID"도 "ASK"도 아니다.')
       }
     }
+    this._trs[tr.ask_bid] = tr
+    if(this._subscribers[tr.ask_bid]) {
+      await Promise.all(this._subscribers[tr.ask_bid].subscribers.map(sub => sub.next(tr.trade_price)))
+    }
   }
 
   getPrice(bid_ask?: 'BID'|'ASK'): number {
-    switch(bid_ask) {
-      case 'BID': {
-        if(!this._bidTr) {
-          throw new Error('아직 "price"가 없다.')
-        }
-        return this._bidTr.trade_price
-      }
-      case 'ASK': {
-        if(!this._askTr) {
-          throw new Error('아직 "price"가 없다.')
-        }
-        return this._askTr.trade_price
-      }
-      default: {
-        if(!(this._bidTr || this._askTr)) {
-          throw new Error('아직 "price"가 없다.')
-        }
-        if(!this._bidTr && this._askTr) {
-          return this._askTr.trade_price
-        }
-        if(!this._askTr && this._bidTr) {
-          return this._bidTr.trade_price
-        }
-        if(this._bidTr.sequential_id > this._askTr.sequential_id) {
-          return this._bidTr.trade_price
-        } else {
-          return this._askTr.trade_price
-        }
-      }
+    if(!bid_ask) {
+      bid_ask = this._initBidAsk()
     }
+    if(!this._trs[bid_ask]) {
+      throw new Error('아직 "price"가 없다.')
+    }
+    return this._trs[bid_ask].trade_price
   }
 
   getTime(bid_ask?: 'BID'|'ASK'): number {
-    switch(bid_ask) {
-      case 'BID': {
-        if(!this._bidTr) {
-          throw new Error('아직 "time"이 없다.')
-        }
-        return this._bidTr.trade_timestamp
-      }
-      case 'ASK': {
-        if(!this._askTr) {
-          throw new Error('아직 "time"이 없다.')
-        }
-        return this._askTr.trade_timestamp
-      }
-      default: {
-        if(!(this._bidTr || this._askTr)) {
-          throw new Error('아직 "time"이 없다.')
-        }
-        if(!this._bidTr && this._askTr) {
-          return this._askTr.trade_timestamp
-        }
-        if(!this._askTr && this._bidTr) {
-          return this._bidTr.trade_timestamp
-        }
-        if(this._bidTr.sequential_id > this._askTr.sequential_id) {
-          return this._bidTr.trade_timestamp
-        } else {
-          return this._askTr.trade_timestamp
-        }
-      }
+    if(!bid_ask) {
+      bid_ask = this._initBidAsk()
     }
+    if(!this._trs[bid_ask]) {
+      throw new Error('아직 "price"가 없다.')
+    }
+    return this._trs[bid_ask].trade_timestamp
   }
+
+  private _initBidAsk(): 'BID'|'ASK' {
+    if(this._trs['BID'] && this._trs['ASK']) {
+      if(this._trs['BID'].sequential_id > this._trs['ASK'].sequential_id) {
+        return 'BID'
+      }
+      return 'ASK'
+    }
+    if(this._trs['BID']) {
+      return 'BID'
+    }
+    if(this._trs['ASK']) {
+      return 'ASK'
+    }
+    throw new Error('아직 "price"가 없다.')
+  }
+
 }
 
 
@@ -638,14 +650,17 @@ class CandleMockAPI extends BaseMockAPI {
     super(market)
   }
 
-  setCandle(ohlc: I.OHLCType): void {
-    this._ohlc = ohlc
+  async setCandle(ohlc: I.OHLCType): Promise<void> {
     // this._makeBid(ohlc.low, ohlc.timestamp)
     // this._makeAsk(ohlc.high, ohlc.timestamp)
     this._makeBid(ohlc.close, ohlc.timestamp)
     this._makeAsk(ohlc.close, ohlc.timestamp)
     this._takeBid(ohlc.close, ohlc.timestamp)
     this._takeAsk(ohlc.close, ohlc.timestamp)
+    this._ohlc = ohlc
+    if(this._subscribers[ohlc.close]) {
+      await Promise.all(this._subscribers['BOTH'].subscribers.map(sub => sub.next(ohlc.close)))
+    }
   }
 
   getPrice(bid_ask?: 'BID'|'ASK'): number {
@@ -660,5 +675,9 @@ class CandleMockAPI extends BaseMockAPI {
       throw new Error('아직 "time"이 없다.')
     }
     return this._ohlc.timestamp
+  }
+
+  observer(bid_ask?: 'BID'|'ASK'|'BOTH'): Observable<number> {
+    return super.observer('BOTH')
   }
 }

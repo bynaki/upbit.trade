@@ -232,9 +232,6 @@ export class BaseBot {
   // }
 
   private _obs(type: I.EventType): Observable<unknown> {
-    if(!this._subscribers) {
-      this._subscribers = {}
-    }
     if(!this._subscribers[type]) {
       this._subscribers[type] = {
         observable: new Observable(sub => {

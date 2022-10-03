@@ -2,6 +2,7 @@
  * 5초 단위로 체결(Trade) 데이터를 출력한다.
 **/
 
+import { logger } from 'fourdollar'
 import {
   BaseBot,
   subscribe,
@@ -15,23 +16,35 @@ class TradeBot extends BaseBot {
   private preTime = -1
   private preCount = 0
   private count = 0
+  private socket: UPbitSocket
 
   constructor(code: string) {
     super(code)
   }
+
+  @logger()
+  log(msg: any) {
+    return msg
+  }
+
+  @subscribe.start
+  start(socket: UPbitSocket) {
+    this.log('started')
+    this.socket = socket
+  }
   
   @subscribe.trade
-  async onTrade(tr: I.TradeType) {
+  async trade(tr: I.TradeType) {
     this.preCount++
     const floorTime = Math.floor(tr.trade_timestamp / 5000)
     if(this.preTime < floorTime) {
-      console.log('--------------------------------------------')
-      console.log(`count: ${this.preCount}`)
-      console.log(tr)
+      this.log('--------------------------------------------')
+      this.log(`count: ${this.preCount}`)
+      this.log(tr)
       this.preCount = 0
       this.preTime = floorTime
-      console.log('latest:')
-      console.log(this.latest(I.ReqType.Trade))
+      this.log('latest:')
+      this.log(this.latest(I.ReqType.Trade))
       if(++this.count === 5) {
         socket.close(true)
       }
@@ -40,13 +53,9 @@ class TradeBot extends BaseBot {
 
   @subscribe.finish
   async finish() {
-    console.log('finished')
+    this.log('finished')
+    this.socket.close(true)
   }
-
-  // async onTrade(tr: I.TradeType) {
-  //     console.log('--------------------------------------------')
-  //     console.log(tr)
-  // }
 }
 
 

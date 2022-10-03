@@ -7,6 +7,7 @@ import {
   types as I,
   UPbitTradeMock,
   UPbitCandleMock,
+  orderMemory,
 } from '../src'
 import {
   stop,
@@ -71,19 +72,22 @@ if(true) {
   let balanceOri: number
   let balanceDest: number
 
-  test.before(async t => {
+  test.serial('UPbitTradeMock > SimpleOrder > 지정가 매매 ----------------- ', async t => {
     setTimeout(async () => {
-      const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'order_trade_order', {
-        daysAgo: 1,
+      const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'trade_order', {
+        daysAgo: 2,
         to: '00:00:00',
       })
       bot = new TestTradeBot('KRW-BTC')
       mock.addBot(bot)
       await mock.open()
     })
-    await stop(5000)
+    do {
+      await stop(1000)
+    } while(!(bot.order && bot.latest(I.ReqType.Trade)))
     order = bot.order
     price = bot.latest(I.ReqType.Trade).trade_price
+    t.pass()
   })
 
   test.serial('UPbitTradeMock > SimpleOrder: balance: before stating', t => {
@@ -96,7 +100,8 @@ if(true) {
   })
 
   test.serial('UPbitTradeMock > SimpleOrder#makeBid(): bid maker', async t => {
-    const res = await order.makeBid(bot.latest(I.ReqType.Trade).trade_price * 0.9)
+    // const res = await order.makeBid(bot.latest(I.ReqType.Trade).trade_price * 0.9)
+    const res = await order.makeBid(price * 0.9)
     t.is(res.side, 'bid')
     t.is(res.state, 'wait')
     t.is(res.ord_type, 'limit')
@@ -185,7 +190,6 @@ if(true) {
   })
 
   test.serial('UPbitTradeMock > SimpleOrder#makeBid(): timeout bid maker', async t => {
-    t.timeout(4000)
     const res = await order.makeBid(price * 0.9, {ms: 1000})
     await stop(3000)
     const msg = await order.updateOrderStatus(res.uuid)
@@ -261,7 +265,7 @@ if(true) {
 
   let executed_volume: number
   test.serial('UPbitTradeMock > SimpleOrder#makeBidObs(): done', t => {
-    const obs = order.makeBidObs({price: bidPrice, timeout: 10000})
+    const obs = order.makeBidObs({price: bidPrice * 1.05, timeout: 1000})
     t.plan(4)
     obs.subscribe({
       next(msg) {
@@ -521,21 +525,24 @@ if(true) {
   let balanceOri: number
   let balanceDest: number
 
-  test.before(async () => {
+  test.serial('UPbitTradeMock > SimpleOrder > 시장가 매매 ------------',  async t => {
     setTimeout(async () => {
       const mock = new UPbitTradeMock(join(__dirname, 'test-mock.db'), 'trade_order', {
-        daysAgo: 1,
+        daysAgo: 2,
         to: '00:00:00',
       })
       bot = new TestTradeBot('KRW-BTC')
       mock.addBot(bot)
       await mock.open()
     })
-    await stop(5000)
+    do {
+      await stop(1000)
+    } while(!(bot.order && bot.latest(I.ReqType.Trade)))
     order = bot.order
     price = bot.latest(I.ReqType.Trade).trade_price
     balanceOri = order.balanceOri
     balanceDest = order.balanceDest
+    t.pass()
   })
 
   test.serial('UPbitTradeMock > SimpleOrder#takeBid(): 앞선 지정가 매수가 있을 시 매수를 취소하고 시장가로 매수 한다.', async t => {
@@ -662,11 +669,11 @@ if(true) {
   let balanceOri: number
   let balanceDest: number
 
-  test.before(async () => {
+  test.serial('UPbitCandleMock > SimpleOrder > 지정가 매매 --------------', async t => {
     setTimeout(async () => {
       const from = '2022-09-01T00:00:00+00:00'
       const to = '2022-09-02T00:00:00+00:00'
-      const mock = new UPbitCandleMock(join(__dirname, 'test-mock.db'), 'order_candle_order', {
+      const mock = new UPbitCandleMock(join(__dirname, 'test-mock.db'), 'order_candle', {
         from,
         to,
       })
@@ -677,6 +684,7 @@ if(true) {
     await stop(2000)
     order = bot.order
     price = bot.latestOHLC.close
+    t.pass()
   })
 
   test.serial('UPbitCandleMock > SimpleOrder: balance: before stating', t => {
@@ -847,7 +855,7 @@ if(true) {
 
   let executed_volume: number
   test.serial('UPbitCandleMock > SimpleOrder#makeBidObs(): done', t => {
-    const obs = order.makeBidObs({price: bidPrice, timeout: 10000})
+    const obs = order.makeBidObs({price: bidPrice * 1.05, timeout: 1000})
     t.plan(4)
     obs.subscribe({
       next(msg) {
@@ -1099,7 +1107,7 @@ if(true) {
   let balanceOri: number
   let balanceDest: number
 
-  test.before(async () => {
+  test.serial('UPbitCandleMock > SimpleOrder > 시장가 매매 -----------------', async t => {
     setTimeout(async () => {
       const from = '2022-09-01T00:00:00+00:00'
       const to = '2022-09-02T00:00:00+00:00'
@@ -1116,6 +1124,7 @@ if(true) {
     price = bot.latestOHLC.close
     balanceOri = order.balanceOri
     balanceDest = order.balanceDest
+    t.pass()
   })
 
   test.serial('UPbitCandleMock > SimpleOrder#takeBid(): 앞선 지정가 매수가 있을 시 매수를 취소하고 시장가로 매수 한다.', async t => {
@@ -1196,5 +1205,151 @@ if(true) {
     const makeBidMsg = await order.updateOrderStatus(makeBidId)
     t.is(makeBidMsg.name, 'cancel_bid')
     t.is(makeBidMsg.description.uuid, makeBidId)
+  })
+}
+
+
+
+class TestLosscutBot extends BaseBot {
+  order: SimpleOrder
+
+  constructor(code: string) {
+    super(code)
+  }
+
+  @logger(writer)
+  log(msg) {
+    return msg
+  }
+
+  @subscribe.start
+  async start(socket: UPbitSocket) {
+    this.log('started')
+    this.order = this.newSimpleOrder('test', 10000)
+  }
+
+  @subscribe.finish
+  async finish() {
+    this.log('finished')
+  }
+
+  @subscribe.trade
+  async trade(tr: I.TradeType) {
+    await stop(10)
+  }
+}
+
+
+/**
+ * UPbitTradeMock > SimpleOrder > losscut(손절)
+ */
+if(true) {
+  let order: SimpleOrder
+  let bot: TestLosscutBot
+
+  async function changedLog(): Promise<any[]> {
+    const len = orderMemory.memory.length
+    while(orderMemory.memory.length === len) {
+      // console.log(orderMemory.memory.length, len)
+      await stop(1000)
+    }
+    return orderMemory.memory.slice(len, orderMemory.memory.length)
+  }
+
+  test.serial('UPbitTradeMock > SimpleOrder > losscut(손절) --------------', async t => {
+    writer.clear()
+    bot = new TestLosscutBot('KRW-BTC')
+    setTimeout(async () => {
+      const mock = new UPbitTradeMock('./dataset/test-mock.db', 'trade_order', {
+        daysAgo: 2,
+        to: '00:00:00',
+      })
+      mock.addBot(bot)
+      await mock.open()
+    })
+    do {
+      await stop(1000)
+    } while(!bot.order)
+    order = bot.order
+    t.pass()
+  })
+
+  test.serial('UPbitTradeMock > losscut: losscutPrice()', async t => {
+    await stop(5000)
+    const status = await order.makeBid(null, {ms: 1000 * 3})
+    const ch01: I.OrderMessage[] = await changedLog()
+    t.is(ch01.length, 1)
+    const s01 = ch01[0]
+    t.is(s01.name, 'bid')
+    t.is(s01.description.uuid, status.uuid)
+    t.is(s01.description.state, 'done')
+    const price = bot.latest(I.ReqType.Trade).trade_price
+    // order.losscutPrice(price)
+    order.losscutPrice({
+      price,
+      timeout: {
+        ms: 3000,
+      },
+    })
+    const ch02 = await changedLog()
+    t.is(ch02.length, 2)
+    const s02: I.OrderMessage = ch02[0]
+    t.is(s02.name, 'ask')
+    t.is(s02.description.side, 'ask')
+    t.is(s02.description.state, 'wait')
+    const ss02: {
+      where: string
+      name: string
+      timestamp: number
+      description: {
+        losscut: number
+        current: number
+      }
+    } = ch02[1]
+    t.is(ss02.description.losscut, price)
+    t.true(ss02.description.losscut > ss02.description.current)
+    const ch03 = await changedLog()
+    const s03: I.OrderMessage = ch03[0]
+    t.is(s03.name, 'ask')
+    t.is(s03.description.side, 'ask')
+    t.is(s03.description.state, 'done')
+  })
+
+  test.serial('UPbitTradeMock > losscut: losscutPct()', async t => {
+    const price = bot.latest(I.ReqType.Trade).trade_price
+    const status = await order.makeBid(null, {ms: 1000 * 3})
+    const ch01 = await changedLog()
+    t.is(ch01.length, 1)
+    const s01: I.OrderMessage = ch01[0]
+    t.is(s01.name, 'bid')
+    t.is(s01.description.uuid, status.uuid)
+    t.is(s01.description.state, 'done')
+    order.losscutPct({
+      pct: 0.9999,
+      timeout: {
+        ms: 3000,
+      },
+    })
+    const ch02 = await changedLog()
+    t.is(ch02.length, 2)
+    const s02: I.OrderMessage = ch02[0]
+    t.is(s02.name, 'ask')
+    t.is(s02.description.side, 'ask')
+    t.is(s02.description.state, 'wait')
+    const ss02: {
+      where: string
+      name: string
+      timestamp: number
+      description: {
+        losscut: number
+        current: number
+      }
+    } = ch02[1]
+    t.true(ss02.description.losscut > ss02.description.current)
+    const ch03 = await changedLog()
+    const s03: I.OrderMessage = ch03[0]
+    t.is(s03.name, 'ask')
+    t.is(s03.description.side, 'ask')
+    t.is(s03.description.state, 'done')
   })
 }
