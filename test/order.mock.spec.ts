@@ -1275,6 +1275,7 @@ if(true) {
   })
 
   test.serial('UPbitTradeMock > losscut: losscutPrice()', async t => {
+    t.plan(15)
     await stop(5000)
     const status = await order.makeBid(null, {ms: 1000 * 3})
     const ch01: I.OrderMessage[] = await changedLog()
@@ -1284,11 +1285,12 @@ if(true) {
     t.is(s01.description.uuid, status.uuid)
     t.is(s01.description.state, 'done')
     const price = bot.latest(I.ReqType.Trade).trade_price
-    // order.losscutPrice(price)
-    order.losscutPrice({
-      price,
-      timeout: {
-        ms: 3000,
+    order.losscutPrice(price, 1000 * 5).subscribe({
+      next(val) {
+        t.true(val < price)
+      },
+      complete() {
+        t.pass()
       },
     })
     const ch02 = await changedLog()
@@ -1316,6 +1318,7 @@ if(true) {
   })
 
   test.serial('UPbitTradeMock > losscut: losscutPct()', async t => {
+    t.plan(14)
     const price = bot.latest(I.ReqType.Trade).trade_price
     const status = await order.makeBid(null, {ms: 1000 * 3})
     const ch01 = await changedLog()
@@ -1324,10 +1327,12 @@ if(true) {
     t.is(s01.name, 'bid')
     t.is(s01.description.uuid, status.uuid)
     t.is(s01.description.state, 'done')
-    order.losscutPct({
-      pct: 0.9999,
-      timeout: {
-        ms: 3000,
+    order.losscutPct(0.999, 1000 * 5).subscribe({
+      next(val) {
+        t.true(val < price)
+      },
+      complete() {
+        t.pass()
       },
     })
     const ch02 = await changedLog()

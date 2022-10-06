@@ -19,6 +19,7 @@ import {
   sample,
   sum,
 } from 'lodash'
+import { of } from 'zen-observable'
 
 
 
@@ -258,7 +259,16 @@ export class SimpleOrder extends BBOrder {
     ori: number
     dest: number
   }
-  protected _lossSub: If.Subscription
+  protected _apiSub: If.Subscription
+  protected _losscutObs: {
+    observer: Observable<number>
+    subObss: If.SubscriptionObserver<number>[]
+  } = {
+    observer: new Observable(sub => {
+      this._losscutObs.subObss.push(sub)
+    }),
+    subObss: [],
+  }
 
   constructor(name: string, market: string, public readonly asset: number) {
     super(market)
@@ -273,169 +283,102 @@ export class SimpleOrder extends BBOrder {
     return this.where
   }
 
-  losscutPrice(price: number, errCb?: (err: any) => void): number
-  losscutPrice(params: {
-    price: number
-    timeout?: {
-      ms: number,
-      cb?: (msg: I.OrderMessage) => void,
-    }
-    errCb?: (err: any) => void
-  }): number
-  losscutPrice(...args: any[]): number {
-    let price: number
-    let ms: number
-    let cb: (msg: I.OrderMessage) => void
-    let errCb: (err: any) => void
-    if(typeof(args[0]) === 'number') {
-      price = args[0]
-      ms = SimpleOrder.timeout
-      errCb = args[1]
-    } else {
-      price = args[0].price
-      ms = args[0].timeout.ms || SimpleOrder.timeout
-      cb = args[0].timeout.cb
-      errCb = args[0].errCb
-    }
-    try {
-      const sub = this._api.observer('BID').subscribe({
-        next: async bid => {
-          if(bid < price) {
-            if(this.msg.order) {
-              const order = this.msg.order
-              if(order.name === 'ask' 
-              && order.description.ord_type === 'limit'
-              && order.description.state === 'wait'
-              && order.description.price >= price) {
-                await this.cancel(order.description.uuid)
-                return
-              }
-              const status = await this.makeAsk(bid, {ms, cb,}, errCb)
-              if(status) {
-                this.log('losscut', {
-                  losscut: price,
-                  current: bid,
-                })
-              }
-            }
-          }
-        }
-      })
-      this._lossSub?.unsubscribe()
-      this._lossSub = sub
-      return price
-    } catch(e) {
-      this._processError(e, errCb)
-      return null
-    }
+  /**
+   * 손절 (losscut) ---
+   * price 밑으로 손절 예약한다.
+   * losscut 조건이 충족되었을 시 모든 매매보다 우위에 있으므로 모든 매매예약을 취소하고 손절한다. 
+   * @param price price(가격) 밑으로 떨어지면 손절한다.
+   * @param timeout 손절 매도 타임아웃 시간.
+   * @returns observer. 손절 조건이 충족되었을 시 이벤트 발생.
+   */
+  losscutPrice(price: number, timeout: number = SimpleOrder.timeout): Observable<number> {
+    this._losscutObs.subObss = []
+    this._losscutPrice(price, timeout)
+    return this._losscutObs.observer
   }
 
-  losscutPct(percentage: number, errCb?: (err: any) => void): void
-  losscutPct(params: {
-    pct: number
-    timeout?: {
-      ms: number,
-      cb?: (msg: I.OrderMessage) => void,
-    }
-    errCb?: (err: any) => void
-  }): void
-  losscutPct(...args: any[]): void {
-    let pct: number
-    let timeout: {
-      ms: number
-      cb?: (msg: I.OrderMessage) => void
-    }
-    let errCb: (err: any) => void
-    if(typeof(args[0]) === 'number') {
-      pct = args[0]
-      errCb = args[1]
-    } else {
-      pct = args[0].pct
-      timeout = args[0].timeout
-      errCb = args[0].errCb
-    }
-    try {
-      if(!(pct > 0 && pct < 1)) {
-        throw new Error('losscut percentage는 0보다 크고 1보다 작아야 한다.')
-      }
-    } catch(e) {
-      this._processError(e, errCb)
-      return
-    }
-    const sub = this._api.observer('BID').subscribe({
-      next: bid => {
-        sub.unsubscribe()
-        const price = bid * pct
-        this.losscutPrice({
-          price,
-          timeout,
-          errCb,
-        })
-      }
-    })
-  }
-
-  cancelLosscut(): void {
-    this._lossSub?.unsubscribe()
-  }
-
-  // todo:
   /**
    * 손절 (losscut) ---
    * 현재가의 pct(percentage)로 losscut을 예약한다.
    * 예: 현재가가 100이고 pct를 0.98(losscut(0.98))설정했을 경우 현재가가 98밑으로 떨어지면 손절한다.
-   * pct(percentage)가 0일경우 기존 losscut예약을 취소한다. (pct의 기본값은 0이다.)
-   * losscut pct조건이 참이 될었을 경우 예약된 매수나 매도보다 우위에 있으므로 모든 매매예약을 취소하고 손절한다. 
-   * @param pct 현재가의 losscut percentage (0일경우 기존 losscut을 unsubscribe 한다. 기본값은 0이다.)
-   * @returns error가 없을시 true를 반환한다.
+   * losscut 조건이 충족되었을 모든 매매보다 우위에 있으므로 모든 매매예약을 취소하고 손절한다. 
+   * @param percentage 현재가의 losscut percentage (0 < percentage < 1 이어야 한다.)
+   * @param timeout 손절 매도 timeout.
+   * @returns observer. 손절 조건이 충족되었을 시 이벤트 발생.
    */
-  losscutPercentageA(pct: number): boolean {
+  losscutPct(percentage: number, timeout: number = SimpleOrder.timeout): Observable<number> {
     try {
-      if(!(pct > 0 && pct < 1)) {
-        throw new Error('losscut은 0보다 크고 1보다 작아야 한다.')
+      if(!(percentage > 0 && percentage < 1)) {
+        throw new Error('losscut percentage는 0보다 크고 1보다 작아야 한다.')
       }
-      if(pct === 0) {
-        this._lossSub?.unsubscribe()
-        this._lossSub = undefined
-        this.log('losscut', 'unsubscribed')
-        return true
+    } catch(e) {
+      this._processError(e, null)
+    }
+    this._losscutObs.subObss = []
+    const sub = this._api.observer('BID').subscribe({
+      next: bid => {
+        sub.unsubscribe()
+        const price = bid * percentage
+        this._losscutPrice(price, timeout)
       }
-      let losscut = 0
+    })
+    return this._losscutObs.observer
+  }
+
+  protected _losscutPrice(price: number, timeout: number = SimpleOrder.timeout): boolean  {
+    try {
+      this._apiSub?.unsubscribe()
       const sub = this._api.observer('BID').subscribe({
-        next: async price => {
-          console.log('losscut', losscut, price)
-          if(losscut === 0) {
-            losscut = price * pct
-          }
-          if(price < losscut) {
-            if(this.msg.order) {
-              const order = this.msg.order
-              if(order.name === 'ask' 
-              && order.description.ord_type === 'limit'
-              && order.description.state === 'wait'
-              && order.description.price >= losscut) {
-                await this.cancel(order.description.uuid)
-                return
+        next: async bid => {
+          try {
+            if(bid < price) {
+              if(this.msg.order) {
+                const order = this.msg.order
+                if(order.name === 'ask' 
+                && order.description.ord_type === 'limit'
+                && order.description.state === 'wait'
+                && order.description.price >= price) {
+                  await this.cancel(order.description.uuid)
+                  return
+                }
+                const status = await this.makeAsk(bid, {ms: timeout})
+                if(status) {
+                  for(let s of this._losscutObs.subObss) {
+                    await s.next(bid)
+                  }
+                  for(let s of this._losscutObs.subObss) {
+                    s.complete()
+                  }
+                  this.log('losscut', {
+                    losscut: price,
+                    current: bid,
+                  })
+                }
               }
-              const status = await this.makeAsk(price)
-              if(status) {
-                this.log('losscut', {
-                  losscut,
-                  percentage: pct,
-                  price,
-                })
-              }
+            }
+          } catch(e) {
+            for(let s of this._losscutObs.subObss) {
+              s.error(e)
+            }
+            for(let s of this._losscutObs.subObss) {
+              s.complete()
             }
           }
         }
       })
-      this._lossSub?.unsubscribe()
-      this._lossSub = sub
+      this._apiSub = sub
       return true
     } catch(e) {
       this._processError(e, null)
       return false
     }
+  }
+
+  /**
+   * 손절 예약을 취소한다.
+   */
+  cancelLosscut(): void {
+    this._apiSub?.unsubscribe()
   }
 
   /**
