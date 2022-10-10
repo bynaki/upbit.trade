@@ -1,6 +1,6 @@
 {
   "name": "upbit.trade",
-  "version": "0.80.1",
+  "version": "0.80.2",
   "description": "upbit trade",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -56,7 +56,7 @@
   },
   "ava": {
     "files": [
-      "dist.test/test/**/order.mock.spec.js"
+      "dist.test/test/**/order.spec.js"
     ]
   }
 }

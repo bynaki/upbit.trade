@@ -190,7 +190,7 @@ if(true) {
   })
 
   test.serial('UPbitTradeMock > SimpleOrder#makeBid(): timeout bid maker', async t => {
-    const res = await order.makeBid(price * 0.9, {ms: 1000})
+    const res = await order.makeBid({price: price * 0.9, timeout: {ms: 1000}})
     await stop(3000)
     const msg = await order.updateOrderStatus(res.uuid)
     t.is(msg.name, 'cancel_bid')
@@ -202,16 +202,22 @@ if(true) {
     t.plan(4)
     const before = Date.now()
     return new Observable(observer => {
-      order.makeBid(price * 0.9, {ms: 1000, cb: async msg => {
-        const to = Date.now()
-        t.true((to - before) > 1000 && (to - before) < 2000)
-        t.is(msg.name, 'bid')
-        t.is(msg.description.side, 'bid')
-        t.is(msg.description.state, 'wait')
-        await order.cancel(msg.description.uuid)
-        console.log(`timeout...! in ${to - before}`)
-        observer.complete()
-      }})
+      order.makeBid({
+        price: price * 0.9,
+        timeout: {
+          ms: 1000,
+          cb: async msg => {
+            const to = Date.now()
+            t.true((to - before) > 1000 && (to - before) < 2000)
+            t.is(msg.name, 'bid')
+            t.is(msg.description.side, 'bid')
+            t.is(msg.description.state, 'wait')
+            await order.cancel(msg.description.uuid)
+            console.log(`timeout...! in ${to - before}`)
+            observer.complete()
+          }
+        },
+      })
     })
   })
 
@@ -392,7 +398,7 @@ if(true) {
 
   test.serial('UPbitTradeMock > SimpleOrder#makeAsk(): timeout', async t => {
     t.timeout(4000)
-    const res = await order.makeAsk(price * 1.1, {ms: 1000})
+    const res = await order.makeAsk({price: price * 1.1, timeout: {ms: 1000}})
     await stop(3000)
     const msg1 = order.msg.order
     t.is(msg1.name, 'cancel_ask')
@@ -407,16 +413,22 @@ if(true) {
   test.serial('UPbitTradeMock > SimpleOrder#makeAsk(): timeout callback ask', t => {
     const t1 = Date.now()
     return new Observable(observer => {
-      order.makeAsk(price * 1.1, {ms: 1000, cb: async msg => {
-        const t2 = Date.now()
-        t.true((t2 - t1) >= 1000 && (t2 - t1) < 2000)
-        t.is(msg.name, 'ask')
-        t.is(msg.description.side, 'ask')
-        t.is(msg.description.state, 'wait')
-        await order.cancel(msg.description.uuid)
-        console.log(`timeout...! in ${t1 - t2}`)
-        observer.complete()
-      }})
+      order.makeAsk({
+        price: price * 1.1,
+        timeout: {
+          ms: 1000,
+          cb: async msg => {
+            const t2 = Date.now()
+            t.true((t2 - t1) >= 1000 && (t2 - t1) < 2000)
+            t.is(msg.name, 'ask')
+            t.is(msg.description.side, 'ask')
+            t.is(msg.description.state, 'wait')
+            await order.cancel(msg.description.uuid)
+            console.log(`timeout...! in ${t1 - t2}`)
+            observer.complete()
+          },
+        },
+      })
     })
   })
 
@@ -787,7 +799,7 @@ if(true) {
 
   test.serial('UPbitCandleMock > SimpleOrder#makeBid(): timeout bid maker', async t => {
     t.timeout(4000)
-    const res = await order.makeBid(price * 0.9, {ms: 1000})
+    const res = await order.makeBid({price: price * 0.9, timeout: {ms: 1000}})
     await stop(3000)
     const msg = await order.updateOrderStatus(res.uuid)
     t.is(msg.name, 'cancel_bid')
@@ -799,16 +811,22 @@ if(true) {
     t.plan(4)
     const before = Date.now()
     return new Observable(observer => {
-      order.makeBid(price * 0.9, {ms: 1000, cb: async msg => {
-        const to = Date.now()
-        t.true((to - before) > 1000 && (to - before) < 2000)
-        t.is(msg.name, 'bid')
-        t.is(msg.description.side, 'bid')
-        t.is(msg.description.state, 'wait')
-        await order.cancel(msg.description.uuid)
-        console.log(`timeout...! in ${to - before}`)
-        observer.complete()
-      }})
+      order.makeBid({
+        price: price * 0.9,
+        timeout: {
+          ms: 1000,
+          cb: async msg => {
+            const to = Date.now()
+            t.true((to - before) > 1000 && (to - before) < 2000)
+            t.is(msg.name, 'bid')
+            t.is(msg.description.side, 'bid')
+            t.is(msg.description.state, 'wait')
+            await order.cancel(msg.description.uuid)
+            console.log(`timeout...! in ${to - before}`)
+            observer.complete()
+          },
+        },
+      })
     })
   })
 
@@ -982,7 +1000,7 @@ if(true) {
 
   test.serial('UPbitCandleMock > SimpleOrder#makeAsk(): timeout', async t => {
     t.timeout(4000)
-    const res = await order.makeAsk(price * 1.1, {ms: 1000})
+    const res = await order.makeAsk({price: price * 1.1, timeout: {ms: 1000}})
     await stop(3000)
     const msg1 = order.msg.order
     t.is(msg1.name, 'cancel_ask')
@@ -997,16 +1015,22 @@ if(true) {
   test.serial('UPbitCandleMock > SimpleOrder#makeAsk(): timeout callback ask', t => {
     const t1 = Date.now()
     return new Observable(observer => {
-      order.makeAsk(price * 1.1, {ms: 1000, cb: async msg => {
-        const t2 = Date.now()
-        t.true((t2 - t1) >= 1000 && (t2 - t1) < 2000)
-        t.is(msg.name, 'ask')
-        t.is(msg.description.side, 'ask')
-        t.is(msg.description.state, 'wait')
-        await order.cancel(msg.description.uuid)
-        console.log(`timeout...! in ${t1 - t2}`)
-        observer.complete()
-      }})
+      order.makeAsk({
+        price: price * 1.1,
+        timeout: {
+          ms: 1000,
+          cb: async msg => {
+            const t2 = Date.now()
+            t.true((t2 - t1) >= 1000 && (t2 - t1) < 2000)
+            t.is(msg.name, 'ask')
+            t.is(msg.description.side, 'ask')
+            t.is(msg.description.state, 'wait')
+            await order.cancel(msg.description.uuid)
+            console.log(`timeout...! in ${t1 - t2}`)
+            observer.complete()
+          },
+        },
+      })
     })
   })
 
@@ -1277,7 +1301,11 @@ if(true) {
   test.serial('UPbitTradeMock > losscut: losscutPrice()', async t => {
     t.plan(15)
     await stop(5000)
-    const status = await order.makeBid(null, {ms: 1000 * 3})
+    const status = await order.makeBid({
+      timeout: {
+        ms: 1000 * 3,
+      },
+    })
     const ch01: I.OrderMessage[] = await changedLog()
     t.is(ch01.length, 1)
     const s01 = ch01[0]
@@ -1320,7 +1348,7 @@ if(true) {
   test.serial('UPbitTradeMock > losscut: losscutPct()', async t => {
     t.plan(14)
     const price = bot.latest(I.ReqType.Trade).trade_price
-    const status = await order.makeBid(null, {ms: 1000 * 3})
+    const status = await order.makeBid({timeout: {ms: 1000 * 3}})
     const ch01 = await changedLog()
     t.is(ch01.length, 1)
     const s01: I.OrderMessage = ch01[0]

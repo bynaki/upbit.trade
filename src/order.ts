@@ -1,5 +1,6 @@
 import {
   upbit_types as Iu,
+  RequestError,
 } from 'cryptocurrency.api'
 import {
   floorOrderbook,
@@ -341,7 +342,7 @@ export class SimpleOrder extends BBOrder {
                   await this.cancel(order.description.uuid)
                   return
                 }
-                const status = await this.makeAsk(bid, {ms: timeout})
+                const status = await this.makeAsk({price: bid, timeout: {ms: timeout}})
                 if(status) {
                   for(let s of this._losscutObs.subObss) {
                     await s.next(bid)
@@ -416,27 +417,58 @@ export class SimpleOrder extends BBOrder {
       }
       return status
     } catch(e) {
+      if(e.code) {
+        const reqErr: RequestError = e
+        // 매매가 done인걸 미쳐 인식하지 못했을 때 (updateOrderStatus() 하지 않았을 때)
+        if(reqErr.code === 'order_not_found') {
+          return null
+        }
+      }
       return this._processError(e, null)
     }
   }
 
-  // todo: 인수 전달 방법을 바꾸자.
+  /**
+   * 지정가 매수: timeout 되면 cancel 된다.
+   * 앞선 매수 주문이 있을 시 무시된다. 앞선 지정가 매도 주문이 있을 시 주문을 취소한다.
+   * @param price 매수 가격
+   * @returns
+   */
+  makeBid(price?: number): Promise<I.OrderType>
   /**
    * 지정가 매수: timeout 되면 cancel 된다. (단, timeout callback이 없을 때)
    * 앞선 매수 주문이 있을 시 무시된다. 앞선 지정가 매도 주문이 있을 시 주문을 취소한다.
-   * @param price 매수 가격
-   * @param timeout ms: timeout 시간, cb: timeout callback 함수
-   * @param errCb 에러 콜백
-   * @returns 
+   * @param params price: 매수 가격, timeout.ms: timeout 시간, timeout.cb: timeout callback 함수, errCb: 에러 콜백
+   * @returns
    */
-  async makeBid(price?: number | null, timeout: {
-      ms: number
+  makeBid(params: {
+    price?: number
+    timeout?: {
+      ms?: number
       cb?: (msg: I.OrderMessage) => void
-    } = {
-      ms: SimpleOrder.timeout,
-    },
+    }
     errCb?: (err) => void
-  ): Promise<I.OrderType> {
+  }): Promise<I.OrderType>
+  async makeBid(arg: any): Promise<I.OrderType> {
+    let price: number
+    let ms: number
+    let cb: (msg: I.OrderMessage) => void
+    let errCb: (err) => void
+    if(typeof(arg) === 'number') {
+      price = arg
+    } else if(arg?.price) {
+      price = arg.price
+    } else {
+      try {
+        price = this._api.getPrice('BID')
+      } catch(e) {
+        this.log('error', e)
+        return null
+      }
+    }
+    ms = arg?.timeout?.ms || SimpleOrder.timeout
+    cb = arg?.timeout?.cb
+    errCb = arg?.errCb
     try {
       const msg = this.msg.order
       if(msg) {
@@ -451,14 +483,6 @@ export class SimpleOrder extends BBOrder {
           if(msg.description.ord_type === 'limit' && msg.description.state === 'wait') {
             await this.cancel(msg.description.uuid)
           }
-        }
-      }
-      if(!price) {
-        try {
-          price = this._api.getPrice('BID')
-        } catch(e) {
-          this.log('error', e)
-          return null
         }
       }
       const pp = floorOrderbook(price)
@@ -481,41 +505,64 @@ export class SimpleOrder extends BBOrder {
         if(msg.description.state === 'wait') {
           msg = await this.updateOrderStatus(status.uuid)
         }
-        if(timeout.cb) {
-          await timeout.cb(msg)
+        if(cb) {
+          await cb(msg)
         } else if(msg.name === 'bid' && msg.description.state === 'wait') {
           await this.cancel(status.uuid)
         }
-      }, timeout.ms)
+      }, ms)
       return status
     } catch(e) {
       return this._processError(e, errCb)
     }
   }
 
-  makeBidObs(params: {price?: number, timeout?: number} = {}): OrderObservable {
-    let {price, timeout} = params
-    if(timeout === undefined) timeout = SimpleOrder.timeout
+  /**
+   * 지정가 매수 Observer
+   * @param price 매수 가격
+   * @returns Observable
+   */
+  makeBidObs(price?: number): OrderObservable
+  /**
+   * 지정가 매수 Observer
+   * @param params price 매수 가격, timeout: 타임아웃 시간
+   * @returns Observable
+   */
+  makeBidObs(params: {price?: number, timeout?: number}): OrderObservable
+  makeBidObs(arg: any): OrderObservable {
+    let price: number
+    let timeout: number
+    if(typeof(arg) === 'number') {
+      price = arg
+    } else if(arg !== undefined) {
+      price = arg.price
+      timeout = arg.timeout
+    }
+    timeout = timeout? timeout : SimpleOrder.timeout
     const subs = []
     const observer = new OrderObservable(sub => {
       subs.push(sub)
-    }, this.makeBid(price, {
-      ms: timeout,
-      cb: msg => {
+    }, this.makeBid({
+      price,
+      timeout: {
+        ms: timeout,
+        cb: msg => {
+          for(let s of subs) {
+            s.next(msg)
+          }
+          for(let s of subs) {
+            s.complete()
+          }
+        },
+      },
+      errCb: err => {
         for(let s of subs) {
-          s.next(msg)
+          s.error(err)
         }
         for(let s of subs) {
           s.complete()
         }
       },
-    }, err => {
-      for(let s of subs) {
-        s.error(err)
-      }
-      for(let s of subs) {
-        s.complete()
-      }
     }))
     return observer
   }
@@ -567,21 +614,44 @@ export class SimpleOrder extends BBOrder {
   }
 
   /**
-   * 지정가 매도: timeout 되면 cancel 된다. (단, timeout callback이 없을 때)
+   * 지정가 매도: timeout 되면 cancel 된다.
    * 앞선 매도 주문이 있을 시 무시된다. 앞선 지정가 매수 주문이 있을 시 주문을 취소한다.
    * @param price 매도 가격
-   * @param timeout ms: timeout 시간, cb: timeout callback 함수
-   * @param errCb 에러 콜백
-   * @returns 
    */
-  async makeAsk(price?: number, timeout: {
-      ms: number
+  makeAsk(price?: number): Promise<I.OrderType>
+  /**
+   * 지정가 매도: timeout 되면 cancel 된다. (단, timeout callback이 없을 때)
+   * 앞선 매도 주문이 있을 시 무시된다. 앞선 지정가 매수 주문이 있을 시 주문을 취소한다.
+   * @param params price: 매도 가격, timeout.ms: 타임아웃 시간, cb: timeout callback 함수, errCb: 에러 콜백
+   */
+  makeAsk(params: {
+    price?: number
+    timeout?: {
+      ms?: number
       cb?: (msg: I.OrderMessage) => void
-    } = {
-      ms: SimpleOrder.timeout,
-    },
+    }
     errCb?: (err) => void
-  ): Promise<I.OrderType> {
+  }): Promise<I.OrderType>
+  async makeAsk(arg: any): Promise<I.OrderType> {
+    let price: number
+    let ms: number
+    let cb: (msg: I.OrderMessage) => void
+    let errCb: (err) => void
+    if(typeof(arg) === 'number') {
+      price = arg
+    } else if(arg?.price) {
+      price = arg.price
+    } else {
+      try {
+        price = this._api.getPrice('ASK')
+      } catch(e) {
+        this.log('error', e)
+        return null
+      }
+    }
+    ms = arg?.timeout?.ms || SimpleOrder.timeout
+    cb = arg?.timeout?.cb
+    errCb = arg?.errCb
     try {
       const msg = this.msg.order
       if(msg) {
@@ -596,14 +666,6 @@ export class SimpleOrder extends BBOrder {
           if(msg.description.ord_type === 'limit' && msg.description.state === 'wait') {
             await this.cancel(msg.description.uuid)
           }
-        }
-      }
-      if(!price) {
-        try {
-          price = this._api.getPrice('ASK')
-        } catch(e) {
-          this.log('error', e)
-          return null
         }
       }
       const pp = floorOrderbook(price)
@@ -625,49 +687,71 @@ export class SimpleOrder extends BBOrder {
         if(msg.description.state === 'wait') {
           msg = await this.updateOrderStatus(status.uuid)
         }
-        if(timeout.cb) {
-          timeout.cb(msg)
+        if(cb) {
+          cb(msg)
         } else if(msg.name === 'ask' && msg.description.state === 'wait') {
           await this.cancel(msg.description.uuid)
         }
-      }, timeout.ms)
+      }, ms)
       return status
     } catch(e) {
       return this._processError(e, errCb)
     }
   }
 
-  makeAskObs(params: {price?: number, timeout?: number}= {}): OrderObservable {
-    let {price, timeout} = params
-    if(timeout === undefined) timeout = SimpleOrder.timeout
+  /**
+   * 지정가 매도 Observer
+   * @param price 매도 가격
+   */
+  makeAskObs(price?: number): OrderObservable
+  /**
+   * 지정가 매도 Observer
+   * @param params price: 매도 가격, timeout: 타임아웃 시간
+   */
+  makeAskObs(params: {price?: number, timeout?: number}): OrderObservable
+  makeAskObs(arg: any): OrderObservable {
+    let price: number
+    let timeout: number
+    if(typeof(arg) === 'number') {
+      price = arg
+    } else if(arg !== undefined) {
+      price = arg.price
+      timeout = arg.timeout
+    }
+    timeout = timeout? timeout : SimpleOrder.timeout
     const subs = []
     const observer = new OrderObservable(sub => {
       subs.push(sub)
-    }, this.makeAsk(price, {
-      ms: timeout,
-      cb: msg => {
+    }, this.makeAsk({
+      price,
+      timeout: {
+        ms: timeout,
+        cb: msg => {
+          for(let s of subs) {
+            s.next(msg)
+          }
+          for(let s of subs) {
+            s.complete()
+          }
+        },
+      },
+      errCb: err => {
         for(let s of subs) {
-          s.next(msg)
+          s.error(err)
         }
         for(let s of subs) {
           s.complete()
         }
       },
-    }, err => {
-      for(let s of subs) {
-        s.error(err)
-      }
-      for(let s of subs) {
-        s.complete()
-      }
     }))
     return observer
   }
 
   /**
-   * 시장가 매도: 앞선 시장가 매도 주문이 있을 시 무시된다.
+   * 시장가 매도
+   * 앞선 시장가 매도 주문이 있을 시 무시된다.
    * 앞선 지정가 매도 주문이 있을 시 주문을 취소한다.
-   * 앞선 지정가 매수 주뭉이 있을 시 주문을 취소한다.
+   * 앞선 지정가 매수 주문이 있을 시 주문을 취소한다.
    * @param errCb 에러 콜백
    * @returns 
    */

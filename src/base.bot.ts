@@ -118,7 +118,7 @@ export class BaseBot {
     this._socket = socket
   }
 
-  protected newSimpleOrder(name: string, asset: number): SimpleOrder {
+  newSimpleOrder(name: string, asset: number): SimpleOrder {
     if(!this._socket) {
       throw new Error('Socket을 먼저 설정해야한다.')
     }

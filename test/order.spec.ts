@@ -3,9 +3,14 @@ import {
   api,
   SimpleOrder,
   types as I,
+  BaseBot,
+  subscribe,
+  UPbitSocket,
 } from '../src'
 import {
+  MemoryWriter,
   stop,
+  logger,
 } from 'fourdollar'
 import {
   sum,
@@ -14,46 +19,79 @@ import {
 import Observable from 'zen-observable'
 
 
+const writer = new MemoryWriter()
+
+
+class TestTradeBot extends BaseBot {
+  // order: SimpleOrder
+
+  constructor(code: string) {
+    super(code)
+  }
+
+  @logger(writer)
+  log(msg: any) {
+    return msg
+  }
+
+  @subscribe.start
+  async start(socket: UPbitSocket) {
+    this.log('started')
+    // this.order = this.newSimpleOrder('test', 10000)
+  }
+
+  @subscribe.finish
+  async finish() {
+    this.log('finished')
+  }
+
+  @subscribe.trade
+  async trade(tr: I.TradeType) {
+    // console.log(format(new Date(tr.trade_timestamp), 'isoDateTime'))
+  }
+}
+
+
+async function waitChangedState(status: I.OrderType | I.OrderDetailType, ms: number = 1000): Promise<I.OrderDetailType> {
+  let res: I.OrderDetailType
+  do {
+    await stop(ms)
+    res = (await api.getOrderDetail({
+      uuid: status.uuid,
+    })).data
+  } while(res.state === status.state)
+  return res
+}
+
+let bot: TestTradeBot
+
+test.before(async t => {
+  // setTimeout(async () => {
+  //   const socket = new UPbitSocket()
+  //   bot = new TestTradeBot('KRW-BTC')
+  //   socket.addBot(bot)
+  //   await socket.open()
+  // })
+  const socket = new UPbitSocket()
+  bot = new TestTradeBot('KRW-BTC')
+  socket.addBot(bot)
+  await socket.open()
+})
+
 
 /**
  * SimpleOrder 지정가 매매
  */
-if(false) {
-  // test.only('api cancel', async t => {
-  //   const pp = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0].trade_price
-  //   const price = floorOrderbook(pp * 0.9)
-  //   const res1 = await api.order({
-  //     market: 'KRW-BTC',
-  //     side: 'bid',
-  //     ord_type: 'limit',
-  //     price,
-  //     volume: ceil(5000 / price, 8),
-  //   })
-  //   console.log(res1.data)
-  //   const res2 = await api.cancel({uuid: res1.data.uuid})
-  //   console.log(res2.data)
-  //   const res3 = await api.getOrderDetail({uuid: res1.data.uuid})
-  //   console.log(res3.data)
-  //   t.pass()
-  // })
-
-  // test.only('api chance', async t => {
-  //   const chance = (await api.getOrdersChance({market: 'KRW-BTC'})).data
-  //   console.log(chance)
-  //   t.pass()
-  // })
-
-  const order = new SimpleOrder('test', 'KRW-BTC', 10000)
+if(true) {
+  let order: SimpleOrder
   let price: number
   let balanceOri: number
   let balanceDest: number
 
-  test.before(async t => {
+  test.serial('SimpleOrder: init maker --------------------', async t => {
+    order = bot.newSimpleOrder('Test::Maker', 10000)
     const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
     price = trade.trade_price
-  })
-
-  test.serial('SimpleOrder: balance: before stating', t => {
     console.log(`balanceOri: ${order.balanceOri}`)
     console.log(`balanceDest: ${order.balanceDest}`)
     t.is(order.balanceOri, 10000)
@@ -109,7 +147,7 @@ if(false) {
   })
 
   test.serial('SimpleOrder#cancel(): wait cancel bid', async t => {
-    await stop(1000)
+    await waitChangedState(order.msg.order.description)
     const msg = await order.updateOrderStatus()
     t.is(msg.name, 'cancel_bid')
     t.is(msg.description.side, 'bid')
@@ -141,7 +179,7 @@ if(false) {
     t.is(msg1.description.state, 'wait')
     t.is(order.balanceOri, balanceOri + msg1.description.locked)
     t.is(order.balanceDest, balanceDest)
-    await stop(1000)
+    await waitChangedState(msg1.description)
     const msg2 = await order.updateOrderStatus()
     t.is(msg2.name, 'cancel_bid')
     t.is(msg2.description.state, 'cancel')
@@ -152,9 +190,8 @@ if(false) {
   })
 
   test.serial('SimpleOrder#makeBid(): timeout bid maker', async t => {
-    t.timeout(4000)
-    const res = await order.makeBid(price * 0.9, {ms: 1000})
-    await stop(3000)
+    const res = await order.makeBid({price: price * 0.9, timeout: {ms: 1000}})
+    await waitChangedState(res)
     const msg = await order.updateOrderStatus(res.uuid)
     t.is(msg.name, 'cancel_bid')
     t.is(msg.description.side, 'bid')
@@ -165,16 +202,22 @@ if(false) {
     t.plan(4)
     const before = Date.now()
     return new Observable(observer => {
-      order.makeBid(price * 0.9, {ms: 1000, cb: async msg => {
-        const to = Date.now()
-        t.true((to - before) > 1000 && (to - before) < 2000)
-        t.is(msg.name, 'bid')
-        t.is(msg.description.side, 'bid')
-        t.is(msg.description.state, 'wait')
-        await order.cancel(msg.description.uuid)
-        console.log(`timeout...! in ${to - before}`)
-        observer.complete()
-      }})
+      order.makeBid({
+        price: price * 0.9,
+        timeout: {
+          ms: 1000,
+          cb: async msg => {
+            const to = Date.now()
+            t.true((to - before) > 1000 && (to - before) < 2000)
+            t.is(msg.name, 'bid')
+            t.is(msg.description.side, 'bid')
+            t.is(msg.description.state, 'wait')
+            await order.cancel(msg.description.uuid)
+            console.log(`timeout...! in ${to - before}`)
+            observer.complete()
+          },
+        },
+      })
     })
   })
 
@@ -189,8 +232,12 @@ if(false) {
         t.is(msg.name, 'bid')
         t.is(msg.description.side, 'bid')
         t.is(msg.description.state, 'wait')
-        await order.cancel(msg.description.uuid)
+        const res = await order.cancel(msg.description.uuid)
         console.log(`timeout...! in ${to - before}`)
+        await waitChangedState(res)
+        const updated = await order.updateOrderStatus(res.uuid)
+        t.is(updated.name, 'cancel_bid')
+        t.is(updated.description.state, 'cancel')
       },
       complete() {
         t.pass()
@@ -202,10 +249,10 @@ if(false) {
     return observer
   })
 
-  test.serial('SimpleOrder#makeBidObs(): waiting cancel', async t => {
-    await stop(1000)
-    t.pass()
-  })
+  // test.serial('SimpleOrder#makeBidObs(): waiting cancel', async t => {
+  //   await stop(1000)
+  //   t.pass()
+  // })
 
   test.serial('SimpleOrder: initialize balance 1', t => {
     balanceOri = 10000
@@ -220,26 +267,52 @@ if(false) {
     t.pass()
   })
 
-  let executed_volume: number
-  test.serial('SimpleOrder#makeBidObs(): done', t => {
-    const obs = order.makeBidObs({price: bidPrice, timeout: 10000})
-    t.plan(4)
-    obs.subscribe({
-      next(msg) {
-        t.is(msg.name, 'bid')
-        t.is(msg.description.side, 'bid')
-        t.is(msg.description.state, 'done')
-        executed_volume = order.msg.order.description.executed_volume
+  test.serial('SimpleOrder#makeBid(): doing', async t => {
+    const s = await order.makeBid({
+      price: bidPrice * 1.00,
+      timeout: {
+        ms: 1000 * 60,
       },
-      complete() {
-        t.pass()
-      },
-      error(err) {
-        t.fail()
-      }
     })
-    return obs
+    const res = await waitChangedState(s)
+    t.is(res.state, 'done')
   })
+
+  test.serial('SimpleOrder#cancel(): 매매가 done 된걸 인식 못한 상태에서 cancel하면 error 대신 null을 반환한다.', async t => {
+    const status = await order.cancel()
+    t.is(status, null!)
+    console.log(`status: ${status}`)
+  })
+
+  let executed_volume: number
+  test.serial('SimpleOrder#makeBid(): done', async t => {
+    const status = await order.updateOrderStatus()
+    t.is(status.name, 'bid')
+    t.is(status.description.side, 'bid')
+    t.is(status.description.ord_type, 'limit')
+    t.is(status.description.state, 'done')
+    executed_volume = status.description.executed_volume
+  })
+
+  // test.serial('SimpleOrder#makeBidObs(): done', t => {
+  //   const obs = order.makeBidObs({price: bidPrice, timeout: 10000})
+  //   t.plan(4)
+  //   obs.subscribe({
+  //     next(msg) {
+  //       t.is(msg.name, 'bid')
+  //       t.is(msg.description.side, 'bid')
+  //       t.is(msg.description.state, 'done')
+  //       executed_volume = order.msg.order.description.executed_volume
+  //     },
+  //     complete() {
+  //       t.pass()
+  //     },
+  //     error(err) {
+  //       t.fail()
+  //     }
+  //   })
+  //   return obs
+  // })
 
   test.serial('SimpleOrder#balance: when the bid is done', t => {
     console.log(`balanceOri: ${order.balanceOri}`)
@@ -305,7 +378,7 @@ if(false) {
   })
 
   test.serial('SimpleOrder: wait cancel ask', async t => {
-    await stop(1000)
+    await waitChangedState(order.msg.order.description)
     const msg = await order.updateOrderStatus()
     t.is(msg.name, 'cancel_ask')
     t.is(msg.description.side, 'ask')
@@ -321,7 +394,7 @@ if(false) {
     balanceDest = order.balanceDest
   })
 
-  test.serial('SimpleOrder: 미체결 매도가 있을 시 매수 주문하면 매도 주문을 취소하고 매수한다.', async t => {
+  test.serial('SimpleOrder: 미체결 매도가 있을 시 매수 주문하면 매도 주문을 취소하고 매수를 준비한다.', async t => {
     const res1 = await order.makeAsk(price * 1.1)
     t.is(res1.side, 'ask')
     t.is(res1.state, 'wait')
@@ -337,7 +410,7 @@ if(false) {
     t.is(msg1.description.state, 'wait')
     t.is(order.balanceOri, balanceOri)
     t.is(order.balanceDest, balanceDest + msg1.description.locked)
-    await stop(1000)
+    await waitChangedState(msg1.description)
     const msg2 = await order.updateOrderStatus()
     t.is(msg2.name, 'cancel_ask')
     t.is(msg2.description.state, 'cancel')
@@ -348,13 +421,18 @@ if(false) {
   })
 
   test.serial('SimpleOrder#makeAsk(): timeout', async t => {
-    t.timeout(4000)
-    const res = await order.makeAsk(price * 1.1, {ms: 1000})
-    await stop(3000)
+    const res = await order.makeAsk({
+      price: price * 1.1,
+      timeout: {
+        ms: 1000,
+      },
+    })
+    await stop(2000)
     const msg1 = order.msg.order
     t.is(msg1.name, 'cancel_ask')
     t.is(msg1.description.side, 'ask')
     t.is(msg1.description.state, 'wait')
+    await waitChangedState(msg1.description)
     const msg2 = await order.updateOrderStatus(res.uuid)
     t.is(msg2.name, 'cancel_ask')
     t.is(msg2.description.side, 'ask')
@@ -364,16 +442,22 @@ if(false) {
   test.serial('SimpleOrder#makeAsk(): timeout callback ask', t => {
     const t1 = Date.now()
     return new Observable(observer => {
-      order.makeAsk(price * 1.1, {ms: 1000, cb: async msg => {
-        const t2 = Date.now()
-        t.true((t2 - t1) >= 1000 && (t2 - t1) < 2000)
-        t.is(msg.name, 'ask')
-        t.is(msg.description.side, 'ask')
-        t.is(msg.description.state, 'wait')
-        await order.cancel(msg.description.uuid)
-        console.log(`timeout...! in ${t1 - t2}`)
-        observer.complete()
-      }})
+      order.makeAsk({
+        price: price * 1.1,
+        timeout: {
+          ms: 1000,
+          cb: async msg => {
+            const t2 = Date.now()
+            t.true((t2 - t1) >= 1000 && (t2 - t1) < 2000)
+            t.is(msg.name, 'ask')
+            t.is(msg.description.side, 'ask')
+            t.is(msg.description.state, 'wait')
+            await order.cancel(msg.description.uuid)
+            console.log(`timeout...! in ${t1 - t2}`)
+            observer.complete()
+          },
+        },
+      })
     })
   })
 
@@ -388,7 +472,8 @@ if(false) {
         t.is(msg.name, 'ask')
         t.is(msg.description.side, 'ask')
         t.is(msg.description.state, 'wait')
-        order.cancel(msg.description.uuid)
+        const canceling = order.cancel(msg.description.uuid)
+        
         console.log(`timeout...! in ${t1 - t2}`)
       },
       complete() {
@@ -401,10 +486,10 @@ if(false) {
     return obs
   })
 
-  test.serial('SimpleOrder#makeAskObs(): waiting cancel', async t => {
-    await stop(1000)
-    t.pass()
-  })
+  // test.serial('SimpleOrder#makeAskObs(): waiting cancel', async t => {
+  //   await stop(1000)
+  //   t.pass()
+  // })
 
   test.serial('SimpleOrder: waiting: for it is cancelled', async t => {
     await stop(1000)
@@ -428,24 +513,49 @@ if(false) {
     t.pass()
   })
 
-  test.serial('SimpleOrder#makeAskObs(): done', t => {
-    t.plan(4)
-    const obs = order.makeAskObs({price: askPrice, timeout: 10000})
-    obs.subscribe({
-      next(msg) {
-        t.is(msg.name, 'ask')
-        t.is(msg.description.side, 'ask')
-        t.is(msg.description.state, 'done')
-      },
-      complete() {
-        t.pass()
-      },
-      error(err) {
-        t.fail()
+  test.serial('SimpleOrder#makeAsk(): doing', async t => {
+    const s = await order.makeAsk({
+      price: askPrice,
+      timeout: {
+        ms: 1000 * 60,
       },
     })
-    return obs
+    const res = await waitChangedState(s)
+    t.is(res.state, 'done')
   })
+
+  test.serial('SimpleOrder#cancel(): 매매가 done 된걸 인식 못한 상태에서 cancel하면 error 대신 nell을 반환한다.', async t => {
+    const status = await order.cancel()
+    t.is(status, null!)
+    console.log(`status: ${status}`)
+  })
+
+  test.serial('SimpleOrder#makeAsk(): done', async t => {
+    const asked = await order.updateOrderStatus()
+    t.is(asked.name, 'ask')
+    t.is(asked.description.side, 'ask')
+    t.is(asked.description.ord_type, 'limit')
+    t.is(asked.description.state, 'done')
+  })
+
+  // test.serial('SimpleOrder#makeAskObs(): done', t => {
+  //   t.plan(4)
+  //   const obs = order.makeAskObs({price: askPrice, timeout: 10000})
+  //   obs.subscribe({
+  //     next(msg) {
+  //       t.is(msg.name, 'ask')
+  //       t.is(msg.description.side, 'ask')
+  //       t.is(msg.description.state, 'done')
+  //     },
+  //     complete() {
+  //       t.pass()
+  //     },
+  //     error(err) {
+  //       t.fail()
+  //     },
+  //   })
+  //   return obs
+  // })
 
   test.serial('SimpleOrder#balance: when the ask is done', t => {
     console.log(`balanceOri: ${order.balanceOri}`)
@@ -467,15 +577,19 @@ if(false) {
 /**
  * SimpleOrder 시장가 매매
  */
-if(false) {
-  const order = new SimpleOrder('SimpleOrder::Taker::Test', 'KRW-BTC', 10000)
+if(true) {
+  let order: SimpleOrder
   let price: number
-  let balanceOri = order.balanceOri
-  let balanceDest = order.balanceDest
+  let balanceOri: number
+  let balanceDest: number
 
-  test.before(async () => {
+  test.serial('SimpleOrder: initialize taker ---------------------', async t => {
+    order = bot.newSimpleOrder('Test::Taker', 10000)
     const trade = (await api.getTradesTicks({market: 'KRW-BTC'})).data[0]
     price = trade.trade_price
+    balanceOri = order.balanceOri
+    balanceDest = order.balanceDest
+    t.pass()
   })
 
   test.serial('SimpleOrder#takeBid(): 앞선 지정가 매수가 있을 시 매수를 취소하고 시장가로 매수 한다.', async t => {
