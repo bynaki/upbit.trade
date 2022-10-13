@@ -4,6 +4,7 @@ import {
 } from 'cryptocurrency.api'
 import {
   floorOrderbook,
+  toTimeForR,
 } from './utils'
 import * as I from './types'
 import {
@@ -17,10 +18,8 @@ import {
 import {
   ceil,
   isEqual,
-  sample,
   sum,
 } from 'lodash'
-import { of } from 'zen-observable'
 
 
 
@@ -101,10 +100,12 @@ export class BBOrder {
             name = 'ask'
           }
         }
+        const timestamp = Date.now()
         return {
           where: this.name,
           name,
-          timestamp: Date.now(),
+          timestamp,
+          time: toTimeForR(timestamp),
           description: res,
         }
       }
@@ -131,10 +132,12 @@ export class BBOrder {
         }
         const before = this._recentOrder
         if(before == null || name !== before.name || !isEqual(s, before.description)) {
+          const timestamp = Date.now()
           this._recentOrder = {
             where: this.name,
             name,
-            timestamp: Date.now(),
+            timestamp,
+            time: toTimeForR(timestamp),
             description: s,
           }
           this._orders[s.uuid] = this._recentOrder
@@ -143,19 +146,23 @@ export class BBOrder {
         return null
       }
       case 'error': {
+        const timestamp = Date.now()
         this._recentError = {
           where: this.name,
           name,
-          timestamp: Date.now(),
+          timestamp,
+          time: toTimeForR(timestamp),
           description: description,
         }
         return this._recentError
       }
       default: {
+        const timestamp = Date.now()
         return {
           where: this.name,
           name,
-          timestamp: Date.now(),
+          timestamp,
+          time: toTimeForR(timestamp),
           description: description,
         }
       }

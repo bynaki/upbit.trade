@@ -218,8 +218,9 @@ const f = (): boolean => {
   return true
 }
 
-// export const safeApi = {
-//   getMarket: (isDetails?: boolean): Promise<Iu.Response<Iu.MarketType[]>> => {
-//     return api.getMarket(isDetails)
-//   }
-// }
+export function toTimeForR(t: number): string {
+  const d = new Date(t)
+  const date = (d.toISOString()).split('T')[0]
+  const time = (d.toISOString()).split('T')[1].split('.')[0]
+  return `${date} ${time}`
+}

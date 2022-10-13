@@ -180,6 +180,7 @@ export interface Message<S> {
   where: string
   name: string
   timestamp: number
+  time: string
   description: S
 }
 

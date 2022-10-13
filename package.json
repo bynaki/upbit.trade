@@ -1,6 +1,6 @@
 {
   "name": "upbit.trade",
-  "version": "0.80.2",
+  "version": "0.80.8",
   "description": "upbit trade",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
