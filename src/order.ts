@@ -32,7 +32,7 @@ class OrderObservable extends Observable<I.OrderMessage> {
 
 
 const writer = new DefaultWriter()
-const fw = new FileWriter('./log/order.log', '1d')
+const fw = new FileWriter('./log/order.log', '1M')
 const mw = new MemoryWriter()
 writer.link = fw
 fw.link = mw

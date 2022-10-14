@@ -4,10 +4,14 @@ import {
 import * as I from './types'
 import {
   UPbit,
-  upbit_types as Iu,
 } from 'cryptocurrency.api'
-import { isNumber, isString } from 'lodash'
-import { format } from 'fecha'
+import {
+  isNumber,
+  isString,
+} from 'lodash'
+import {
+  format,
+} from 'fecha'
 
 
 
@@ -218,9 +222,7 @@ const f = (): boolean => {
   return true
 }
 
-export function toTimeForR(t: number): string {
-  const d = new Date(t)
-  const date = (d.toISOString()).split('T')[0]
-  const time = (d.toISOString()).split('T')[1].split('.')[0]
-  return `${date} ${time}`
+export function toTimeForR(t: number = Date.now()): string {
+  const mask = 'YYYY-MM-DD HH:mm:ss'
+  return format(new Date(t), mask)
 }
