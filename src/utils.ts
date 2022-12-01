@@ -6,6 +6,7 @@ import {
   UPbit,
 } from 'cryptocurrency.api'
 import {
+  each,
   isNumber,
   isString,
 } from 'lodash'
@@ -28,32 +29,43 @@ export function getConfig(fileName: string = './config.json'): I.Config {
 // }
 
 export function floorOrderbook(price: number) {
+  const u = unit(price)
+  return Math.floor(price / u) * u
+}
+
+export function unit(price: number) {
   if(price >= 2000000) {
-    return Math.floor(price / 1000) * 1000
+    return 1000
   }
   if(price >= 1000000 && price < 2000000) {
-    return Math.floor(price / 500) * 500
+    return 500
   }
   if(price >= 500000 && price < 1000000) {
-    return Math.floor(price / 100) * 100
+    return 100
   }
   if(price >= 100000 && price < 500000) {
-    return Math.floor(price / 50) * 50
+    return 50
   }
   if(price >= 10000 && price < 100000) {
-    return Math.floor(price / 10) * 10
+    return 10
   }
   if(price >= 1000 && price < 10000) {
-    return Math.floor(price / 5) * 5
+    return 5
   }
   if(price >= 100 && price < 1000) {
-    return Math.floor(price / 1) * 1
+    return 1
   }
   if(price >= 10 && price < 100) {
-    return Math.floor(price / 0.1) * 0.1
+    return 0.1
   }
-  if(price >= 0 && price < 10) {
-    return Math.floor(price / 0.01) * 0.01
+  if(price >= 1 && price < 10) {
+    return 0.01
+  }
+  if(price >= 0.1 && price < 1) {
+    return 0.001
+  }
+  if(price >= 0 && price < 0.1) {
+    return 0.0001
   }
   return NaN
 }
