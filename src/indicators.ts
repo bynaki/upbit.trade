@@ -161,7 +161,7 @@ export function RSI(periods: number, MA?: ValueIndicatorType, ...maArgs: unknown
       return null
     }
     const rs = avgGain / avgLoss
-    if(rs === NaN) {
+    if(Number.isNaN(rs)) {
       return 50
     }
     const rsi = 100 - (100 / (1 + rs))

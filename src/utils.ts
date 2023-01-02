@@ -6,9 +6,9 @@ import {
   UPbit,
 } from 'cryptocurrency.api'
 import {
-  each,
   isNumber,
   isString,
+  round,
 } from 'lodash'
 import {
   format,
@@ -32,6 +32,15 @@ export function floorOrderbook(price: number) {
   const u = unit(price)
   return Math.floor(price / u) * u
 }
+
+export function incUnit(price: number) {
+  return round(price + unit(price), 4)
+}
+
+export function decUnit(price: number) {
+  return round(price - unit(price), 4)
+}
+
 
 export function unit(price: number) {
   if(price >= 2000000) {
@@ -228,11 +237,6 @@ export class OHLCMaker {
 }
 
 export const api = new UPbit(getConfig('./config.json').upbit_keys)
-
-
-const f = (): boolean => {
-  return true
-}
 
 export function toTimeForR(t: number = Date.now()): string {
   const mask = 'YYYY-MM-DD HH:mm:ss'

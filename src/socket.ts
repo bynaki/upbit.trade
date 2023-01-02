@@ -19,6 +19,8 @@ import {
 } from 'lodash'
 import {
   Observable,
+  DefaultWriter,
+  FileWriter,
   types as If,
 } from 'fourdollar'
 
@@ -331,6 +333,9 @@ export abstract class BaseUPbitSocket {
 
 
 
+const writer = new DefaultWriter()
+writer.link = new FileWriter('./log/socket.log', '1d')
+
 
 export class UPbitSocket extends BaseUPbitSocket {
   static url = 'wss://api.upbit.com/websocket/v1'
@@ -338,13 +343,14 @@ export class UPbitSocket extends BaseUPbitSocket {
   private _ws: WebSocket = null
   private _exit: boolean = false
   private _uuid: string
+  private _alive: boolean = false
 
   constructor(private readonly pingSec: number = 120 * 1000) {
     super()
     this._uuid = uuidv4()
   }
 
-  @logger()
+  @logger(writer)
   log(msg: string) {
     return msg
   }
@@ -380,6 +386,13 @@ export class UPbitSocket extends BaseUPbitSocket {
     if(waiting !== 0) {
       while(this._ws !== null) {
         await stop(waiting)
+        if(!this._alive) {
+          this.log(`${new Date().toLocaleString()} > resume -----`)
+          await this.resume()
+        } else {
+          this.log(`${new Date().toLocaleString()} > alive ------`)
+        }
+        this._alive = false
       }
     }
   }
@@ -388,12 +401,18 @@ export class UPbitSocket extends BaseUPbitSocket {
     const req = this.requests()
     let ws = new WebSocket(UPbitSocket.url)
     this._ws = ws
+    this._alive = true
     return new Promise<void>((resolve, reject) => {
       ws.on('message', data => {
-        // console.log('message')
-        const d: I.ResType = JSON.parse(data.toString('utf-8'))
-        const bots = this.getBots(d.type, d.code)
-        bots.forEach(b => b['trigger'](d))
+        try {
+          const d: I.ResType = JSON.parse(data.toString('utf-8'))
+          const bots = this.getBots(d.type, d.code)
+          bots.forEach(b => b['trigger'](d))
+          this._alive = true
+        } catch(e) {
+          this.log(JSON.stringify(e))
+          throw e
+        }
       })
       ws.on('close', (code, reason) => {
         this.log(`${new Date().toLocaleString()} > closed -----`)
@@ -421,6 +440,10 @@ export class UPbitSocket extends BaseUPbitSocket {
         }, this.pingSec)
         this.log(`${new Date().toLocaleString()} > opened -----`)
         resolve()
+      })
+      ws.on('error', (msg) => {
+        this.log(`${new Date().toLocaleString()} > error ------`)
+        this.log(JSON.stringify(msg))
       })
     })
   }

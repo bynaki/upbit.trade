@@ -36,13 +36,12 @@ const fw = new FileWriter('./log/order.log', '1M')
 const mw = new MemoryWriter()
 writer.link = fw
 fw.link = mw
-writer.link = mw
-export const orderMemory = mw
+export const orderMemory = new MemoryWriter()
+orderMemory.link = new DefaultWriter()
+
 
 export class BBOrder {
   protected _api: I.WrapAPI
-  protected _recentBid: I.OrderMessage
-  protected _recentAsk: I.OrderMessage
   protected _recentOrder: I.OrderMessage
   protected _recentError: I.ErrorMessage
   protected _recentUser: I.Message<unknown>
@@ -57,15 +56,11 @@ export class BBOrder {
   }
 
   get msg(): {
-    bid: I.OrderMessage
-    ask: I.OrderMessage
     order: I.OrderMessage
     error: I.ErrorMessage
     user: I.Message<unknown>
   } {
     return {
-      bid: this._recentBid,
-      ask: this._recentAsk,
       order: this._recentOrder,
       error: this._recentError,
       user: this._recentUser,
@@ -145,12 +140,6 @@ export class BBOrder {
             timestamp,
             time: toTimeForR(timestamp),
             description: s,
-          }
-          if(this._recentOrder.name == 'bid' || this._recentOrder.name == 'cancel_bid') {
-            this._recentBid = this._recentOrder
-          }
-          if(this._recentOrder.name == 'ask' || this._recentOrder.name == 'cancel_ask') {
-            this._recentAsk = this._recentOrder
           }
           this._orders[s.uuid] = this._recentOrder
           return this._recentOrder
@@ -482,7 +471,6 @@ export class SimpleOrder extends BBOrder {
         price = this._api.getPrice('BID')
       } catch(e) {
         this.log('error', e)
-        console.log('1 --------------------------------------------')
         return null
       }
     }
@@ -495,7 +483,6 @@ export class SimpleOrder extends BBOrder {
         if(msg.name === 'bid') {
           // 앞선 매수가 있을 시 무시된다.
           if(msg.description.state === 'wait') {
-            console.log('1 --------------------------------------------')
             return null
           }
         }
@@ -509,7 +496,6 @@ export class SimpleOrder extends BBOrder {
       const pp = floorOrderbook(price)
       const vol = await this._suitedBidVol('maker', this.market, this.balanceOri)
       if(vol === 0) {
-        console.log('3 --------------------------------------------')
         return null
       }
       const orderParams: Iu.OrderLimitParam = {
@@ -524,7 +510,7 @@ export class SimpleOrder extends BBOrder {
       this.log('bid', status) && await this._updateOrdersChance(this.market)
       setTimeout(async () => {
         let msg = this._searchOrderMsg(status.uuid)
-        if(msg.description.state === 'wait') {
+        if(!msg || msg.description.state === 'wait') {
           msg = await this.updateOrderStatus(status.uuid)
         }
         if(cb) {
@@ -706,7 +692,7 @@ export class SimpleOrder extends BBOrder {
       this.log('ask', status) && await this._updateOrdersChance(this.market)
       setTimeout(async () => {
         let msg = this._searchOrderMsg(status.uuid)
-        if(msg.description.state === 'wait') {
+        if(!msg || msg.description.state === 'wait') {
           msg = await this.updateOrderStatus(status.uuid)
         }
         if(cb) {

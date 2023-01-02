@@ -135,10 +135,6 @@ if(true) {
     t.is(curr.name, 'cancel_bid')
     t.is(curr.description.side, 'bid')
     t.is(curr.description.state, 'wait')
-    const currB = order.msg.bid
-    t.is(currB.name, 'cancel_bid')
-    t.is(currB.description.side, 'bid')
-    t.is(currB.description.state, 'wait')
   })
 
   test.serial('SimpleOrder: balance: when be starting to cancel the bid', t => {
@@ -290,17 +286,12 @@ if(true) {
   })
 
   let executed_volume: number
-  let bidMsg
   test.serial('SimpleOrder#makeBid(): done', async t => {
     const status = await order.updateOrderStatus()
     t.is(status.name, 'bid')
     t.is(status.description.side, 'bid')
     t.is(status.description.ord_type, 'limit')
     t.is(status.description.state, 'done')
-    const orderMsg = order.msg.order
-    bidMsg = order.msg.bid
-    t.deepEqual(orderMsg, bidMsg)
-    t.is(bidMsg.description.price, bidPrice)
     executed_volume = status.description.executed_volume
   })
 
@@ -581,20 +572,8 @@ if(true) {
     const res = await order.cancel()
     t.true(res === null)
   })
-
-  test.serial('msg', async t => {
-    const bid = order.msg.bid
-    const ask = order.msg.ask
-    const ord = order.msg.order
-    t.deepEqual(bid, bidMsg)
-    t.is(bid.name, 'bid')
-    t.is(bid.description.state, 'done')
-    t.is(bid.description.price, bidPrice)
-    t.deepEqual(ask, ord)
-    t.is(ask.name, 'ask')
-    t.is(ask.description.state, 'done')
-  })
 }
+
 
 
 /**
